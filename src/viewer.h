@@ -37,7 +37,7 @@ class MandelbulbViewer : public SDLApp {
 
     void drawAlignedQuad();
 
-    float time;
+    float time_elapsed;
 
     bool play;
     bool record;

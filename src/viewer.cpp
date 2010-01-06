@@ -63,7 +63,7 @@ MandelbulbViewer::MandelbulbViewer() : SDLApp() {
     shaderfile = "MandelbulbQuick";
 
     shader = 0;
-    time = 0;
+    time_elapsed = 0;
     paused = false;
 
     mandelbulb.setPos(vec3f(0.0, 0.0, 0.0));
@@ -91,7 +91,12 @@ MandelbulbViewer::MandelbulbViewer() : SDLApp() {
     ambientColor    = vec4f(0.67, 0.85, 1.0, 1.0);
     lightColor      = vec4f(0.48, 0.59, 0.66, 1.0);
 
+    srand(time(0));
+
     randomizeJuliaSeed();
+
+    //ignore mouse motion until we have finished setting up
+    SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
 }
 
 MandelbulbViewer::~MandelbulbViewer() {
@@ -119,6 +124,9 @@ void MandelbulbViewer::init() {
 
     font = fontmanager.grab("FreeSans.ttf", 16);
     font.dropShadow(true);
+
+    //we are ready receive mouse motion events now
+    SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
 }
 
 void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
@@ -211,6 +219,8 @@ void MandelbulbViewer::addWaypoint(float duration) {
     campath.addEvent(e);
 }
 void MandelbulbViewer::mouseMove(SDL_MouseMotionEvent *e) {
+
+    debugLog("mouseMove %d %d\n", e->xrel, e->yrel);
 
     view.rotateY((e->xrel / 10.0f) * DEGREES_TO_RADIANS);
     view.rotateX((e->yrel / 10.0f) * DEGREES_TO_RADIANS);
@@ -308,7 +318,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     //display.clear();
 
     if(!paused) {
-        time += dt;
+        time_elapsed += dt;
     }
 
     glDisable(GL_DEPTH_TEST);
@@ -318,7 +328,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     vec3f _juliaseed = juliaseed;
 
     if(animated) {
-        _juliaseed = _juliaseed + vec3f(sinf(time), sinf(time), atan(time)) * 0.1;
+        _juliaseed = _juliaseed + vec3f(sinf(time_elapsed), sinf(time_elapsed), atan(time_elapsed)) * 0.1;
     }
 
     vec3f campos = view.getPos();

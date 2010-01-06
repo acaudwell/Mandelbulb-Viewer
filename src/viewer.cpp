@@ -220,7 +220,7 @@ void MandelbulbViewer::addWaypoint(float duration) {
 }
 void MandelbulbViewer::mouseMove(SDL_MouseMotionEvent *e) {
 
-    debugLog("mouseMove %d %d\n", e->xrel, e->yrel);
+    //debugLog("mouseMove %d %d\n", e->xrel, e->yrel);
 
     view.rotateY((e->xrel / 10.0f) * DEGREES_TO_RADIANS);
     view.rotateX((e->yrel / 10.0f) * DEGREES_TO_RADIANS);

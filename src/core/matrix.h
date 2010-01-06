@@ -36,7 +36,7 @@ template<class T> class mat3 {
 public:
     T matrix[3][3];
 
-    mat3<T>::mat3<T>() {
+    mat3() {
         for(int r=0;r<3;r++) {
             for(int c=0;c<3;c++) {
                 matrix[r][c] = 0;
@@ -44,9 +44,9 @@ public:
         }
     }
 
-    mat3<T>::mat3<T>(T a1, T b1, T c1,
-                     T a2, T b2, T c2,
-                     T a3, T b3, T c3) {
+    mat3(T a1, T b1, T c1,
+         T a2, T b2, T c2,
+         T a3, T b3, T c3) {
 
         matrix[0][0] = a1; matrix[0][1] = b1; matrix[0][2] = c1;
         matrix[1][0] = a2; matrix[1][1] = b2; matrix[1][2] = c2;

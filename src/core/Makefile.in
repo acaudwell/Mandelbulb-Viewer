@@ -7,7 +7,7 @@ sdlappfontdir = @sdlappfontdir@
 
 CXX = g++
 CC = gcc
-objects = sdlapp.o display.o extensions.o fxfont.o logger.o regex.o resource.o stringhash.o texture.o plane.o quadtree.o seeklog.o conffile.o shader.o
+objects = sdlapp.o display.o extensions.o fxfont.o logger.o regex.o resource.o stringhash.o texture.o seeklog.o conffile.o shader.o
 CPPFLAGS = @CPPFLAGS@
 CXXFLAGS = @CXXFLAGS@
 

@@ -1,0 +1,34 @@
+prefix = @prefix@
+exec_prefix = ${prefix}
+bindir = ${exec_prefix}/bin
+datarootdir = @datarootdir@
+mandir = ${datarootdir}/man
+sdlappdatadir = $(datarootdir)/mandelbulb
+sdlappfontdir = @sdlappfontdir@
+
+SUBDIRS = src
+
+all:
+	for dir in ${SUBDIRS} ; do ( cd $$dir ; ${MAKE} all ); done
+
+install: all
+	mkdir -p -m 755 $(DESTDIR)/$(bindir)
+	mkdir -p -m 755 ${DESTDIR}/$(sdlappdatadir)
+	mkdir -p -m 755 ${DESTDIR}/$(mandir)/man1
+	cp data/*.png ${DESTDIR}/$(sdlappdatadir)/
+	cp mandelbulb ${DESTDIR}/$(bindir)/
+	sed 's|SDLAPP_DATADIR|$(sdlappdatadir)|g' data/mandelbulb.1 > ${DESTDIR}/$(mandir)/man1/mandelbulb.1
+	gzip -f9 ${DESTDIR}/$(mandir)/man1/mandelbulb.1
+ifndef sdlappfontdir
+	mkdir -p -m 755 ${DESTDIR}/$(sdlappdatadir)/fonts
+	cp data/fonts/*.ttf ${DESTDIR}/$(sdlappdatadir)/fonts/
+	cp data/fonts/README ${DESTDIR}/$(sdlappdatadir)/fonts/
+endif
+distclean:
+	for dir in ${SUBDIRS} ; do ( cd $$dir ; ${MAKE} distclean ); done
+	rm Makefile
+	rm config.status
+	rm config.log
+clean:
+	for dir in ${SUBDIRS} ; do ( cd $$dir ; ${MAKE} clean ); done	
+	if test -f mandelbulb; then rm mandelbulb; fi;

@@ -1,0 +1,7 @@
+.objs
+debug.log
+*.dll
+mandelbulb
+mandelbulb.exe
+mandelbulb.layout
+mandelbulb.depend

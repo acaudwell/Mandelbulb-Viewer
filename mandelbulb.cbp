@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<CodeBlocks_project_file>
+	<FileVersion major="1" minor="6" />
+	<Project>
+		<Option title="Mandelbulb Viewer" />
+		<Option pch_mode="2" />
+		<Option compiler="gcc" />
+		<Build>
+			<Target title="default">
+				<Option output="mandelbulb" prefix_auto="1" extension_auto="1" />
+				<Option type="0" />
+				<Option compiler="gcc" />
+				<Compiler>
+					<Add option="-W" />
+					<Add option="-g" />
+				</Compiler>
+			</Target>
+		</Build>
+		<Compiler>
+			<Add option="-W" />
+			<Add option="-Wall" />
+			<Add option="-g" />
+			<Add option="-Dmain=SDL_main" />
+			<Add option="-DSDLAPP_SHADER_SUPPORT=yes" />
+		</Compiler>
+		<Linker>
+			<Add option="ftgl.dll" />
+			<Add option="glew32.dll" />
+			<Add library="mingw32" />
+			<Add library="pcre" />
+			<Add library="SDLmain" />
+			<Add library="SDL" />
+			<Add library="opengl32" />
+			<Add library="SDL_image" />
+			<Add library="glu32" />
+			<Add library="glew32" />
+		</Linker>
+		<Unit filename="data\shaders\MandelbulbQuick.frag" />
+		<Unit filename="data\shaders\MandelbulbQuick.vert" />
+		<Unit filename="src\core\bounds.h" />
+		<Unit filename="src\core\conffile.cpp" />
+		<Unit filename="src\core\conffile.h" />
+		<Unit filename="src\core\display.cpp" />
+		<Unit filename="src\core\display.h" />
+		<Unit filename="src\core\extensions.cpp" />
+		<Unit filename="src\core\extensions.h" />
+		<Unit filename="src\core\fxfont.cpp" />
+		<Unit filename="src\core\fxfont.h" />
+		<Unit filename="src\core\logger.cpp" />
+		<Unit filename="src\core\logger.h" />
+		<Unit filename="src\core\matrix.h" />
+		<Unit filename="src\core\pi.h" />
+		<Unit filename="src\core\plane.cpp" />
+		<Unit filename="src\core\plane.h" />
+		<Unit filename="src\core\regex.cpp" />
+		<Unit filename="src\core\regex.h" />
+		<Unit filename="src\core\resource.cpp" />
+		<Unit filename="src\core\resource.h" />
+		<Unit filename="src\core\sdlapp.cpp" />
+		<Unit filename="src\core\sdlapp.h" />
+		<Unit filename="src\core\shader.cpp" />
+		<Unit filename="src\core\shader.h" />
+		<Unit filename="src\core\stringhash.cpp" />
+		<Unit filename="src\core\stringhash.h" />
+		<Unit filename="src\core\texture.cpp" />
+		<Unit filename="src\core\texture.h" />
+		<Unit filename="src\core\vectors.h" />
+		<Unit filename="src\vcamera.cpp" />
+		<Unit filename="src\vcamera.h" />
+		<Unit filename="src\viewer.cpp" />
+		<Unit filename="src\viewer.h" />
+		<Extensions>
+			<code_completion />
+			<envvars />
+			<debugger />
+		</Extensions>
+	</Project>
+</CodeBlocks_project_file>

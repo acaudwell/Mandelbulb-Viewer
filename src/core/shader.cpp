@@ -75,7 +75,7 @@ void Shader::makeProgram() {
     glAttachObjectARB(shaderProg,fragmentShader);
     glAttachObjectARB(shaderProg,vertexShader);
 
-    glLinkProgram(shaderProg);
+    glLinkProgramARB(shaderProg);
 }
 
 void Shader::checkError(std::string filename, GLenum shaderRef) {

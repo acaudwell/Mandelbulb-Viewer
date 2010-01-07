@@ -83,6 +83,7 @@ MandelbulbViewer::MandelbulbViewer() : SDLApp() {
 
     animated = false;
     juliaset = false;
+    backgroundGradient = true;
 
     //todo: config file for defaults?
 
@@ -104,7 +105,7 @@ MandelbulbViewer::~MandelbulbViewer() {
 }
 
 void MandelbulbViewer::randomizeJuliaSeed() {
-    juliaseed = vec3f( rand() % 100, rand() % 100, rand() % 100 ) / 100.0f;
+    juliaseed = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ) / 1000.0f;
 }
 
 void MandelbulbViewer::randomizeColours() {
@@ -151,6 +152,10 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
         if (e->keysym.sym ==  SDLK_c) {
             randomizeColours();
+        }
+
+        if (e->keysym.sym ==  SDLK_b) {
+            backgroundGradient = !backgroundGradient;
         }
 
         if (e->keysym.sym ==  SDLK_j) {
@@ -278,16 +283,16 @@ void MandelbulbViewer::drawAlignedQuad() {
     int h = display.height;
 
     glBegin(GL_QUADS);
-        glTexCoord2i(1,1);
+        glTexCoord2i(1,-1);
         glVertex2i(w,h);
 
-        glTexCoord2i(-1,1);
+        glTexCoord2i(-1,-1);
         glVertex2i(0,h);
 
-        glTexCoord2i(-1,-1);
+        glTexCoord2i(-1,1);
         glVertex2i(0,0);
 
-        glTexCoord2i(1,-1);
+        glTexCoord2i(1,1);
         glVertex2i(w,0);
 /*
         glTexCoord2i(1,1);
@@ -352,6 +357,15 @@ void MandelbulbViewer::draw(float t, float dt) {
 
     vec3f campos = view.getPos();
 
+    float bounding = 3.0f;
+
+    //to avoid a visible sphere we need to set the bounding
+    //sphere to be greater than the camera's distance from the
+    //origin
+    if(backgroundGradient) {
+        bounding = std::max(bounding, campos.length2());
+    }
+
     glDisable(GL_BLEND);
     glDisable(GL_TEXTURE_2D);
 
@@ -372,7 +386,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setFloat("radiolariaFactor", 0.0f);
 
     shader->setFloat("power", power);
-    shader->setFloat("bounding", 3.0f );
+    shader->setFloat("bounding", bounding );
     shader->setFloat("bailout", 4.0f );
 
     shader->setInteger("antialiasing", 0);
@@ -382,7 +396,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setFloat("ambientOcclusionEmphasis", 0.58f);
     shader->setFloat("colorSpread",      0.2f);
     shader->setFloat("rimLight",         0.0f);
-    shader->setFloat("specularity",      0.1f);
+    shader->setFloat("specularity",      0.0f);
     shader->setFloat("specularExponent", 15.0f);
 
     shader->setVec3("light", vec3f(38, -42, 38));
@@ -399,7 +413,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setInteger("stepLimit",     110);
     shader->setFloat("epsilonScale",    1.0);
 
-    shader->setInteger("backgroundGradient", 1);
+    shader->setInteger("backgroundGradient", backgroundGradient);
     shader->setFloat("fov",  45.0);
 
     drawAlignedQuad();

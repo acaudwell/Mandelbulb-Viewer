@@ -58,6 +58,7 @@ class MandelbulbViewer : public SDLApp {
     mat3f viewRotation;
     mat3f objRotation;
 
+    bool backgroundGradient;
     bool juliaset;
     vec3f juliaseed;
 

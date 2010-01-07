@@ -39,21 +39,11 @@
  * http://forums.nvidia.com/index.php?showtopic=150985
  *
  */
-uniform float width;
-uniform float height;
+
 varying vec3 Position;
 
 void main()
 {
-   vec4 pos = gl_Vertex;
-   pos.xy = sign(pos.xy);
-   Position = vec3(pos.x, pos.y, 0.0);
-   gl_Position = vec4(pos.xy, 0, 1);
-
-   float ratio = width / height;
-
-//	gl_Position = ftransform();
-	gl_FrontColor = gl_Color;
-	gl_TexCoord[0] = gl_TextureMatrix[0] * gl_MultiTexCoord0;
-//	Position = vec3(gl_MultiTexCoord0);
+    gl_Position = ftransform();
+    Position = vec3(gl_MultiTexCoord0);
 }

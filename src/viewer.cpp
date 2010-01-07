@@ -115,7 +115,7 @@ void MandelbulbViewer::randomizeColours() {
 }
 
 void MandelbulbViewer::init() {
-    display.setClearColour(vec3f(1.0, 1.0, 1.0));
+    display.setClearColour(vec3f(0.0, 0.0, 0.0));
 
     SDL_ShowCursor(false);
     SDL_WM_GrabInput(SDL_GRAB_ON);
@@ -274,11 +274,34 @@ void MandelbulbViewer::drawAlignedQuad() {
 
     glPushMatrix();
 
+    int w = display.width;
+    int h = display.height;
+
     glBegin(GL_QUADS);
-        glVertex2i(1,1);
-        glVertex2i(1,-1);
-        glVertex2i(-1,-1);
-        glVertex2i(-1,1);
+        glTexCoord2i(1,1);
+        glVertex2i(w,h);
+
+        glTexCoord2i(-1,1);
+        glVertex2i(0,h);
+
+        glTexCoord2i(-1,-1);
+        glVertex2i(0,0);
+
+        glTexCoord2i(1,-1);
+        glVertex2i(w,0);
+/*
+        glTexCoord2i(1,1);
+        glVertex2i(0,0);
+
+        glTexCoord2i(-1,1);
+        glVertex2i(w,0);
+
+        glTexCoord2i(-1,-1);
+        glVertex2i(w,h);
+
+        glTexCoord2i(1,-1);
+        glVertex2i(0,h);
+*/
     glEnd();
 
     glPopMatrix();
@@ -315,15 +338,11 @@ void MandelbulbViewer::logic(float t, float dt) {
 }
 
 void MandelbulbViewer::draw(float t, float dt) {
-    //display.clear();
+    display.clear();
 
     if(!paused) {
         time_elapsed += dt;
     }
-
-    glDisable(GL_DEPTH_TEST);
-
-    display.mode2D();
 
     vec3f _juliaseed = juliaseed;
 
@@ -332,6 +351,11 @@ void MandelbulbViewer::draw(float t, float dt) {
     }
 
     vec3f campos = view.getPos();
+
+    glDisable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+
+    display.mode2D();
 
     shader->use();
     shader->setFloat("width",  display.width);
@@ -352,7 +376,6 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setFloat("bailout", 4.0f );
 
     shader->setInteger("antialiasing", 0);
-//    shader->setInteger("phong", 1);
     shader->setInteger("phong", 1);
     shader->setFloat("shadows", 0.0f);
     shader->setFloat("ambientOcclusion", 0.8f);
@@ -371,7 +394,6 @@ void MandelbulbViewer::draw(float t, float dt) {
 
     shader->setMat3("viewRotation", viewRotation);
     shader->setMat3("objRotation",  mandelbulb.getRotationMatrix());
-//    shader->setVec3("rotation", vec3f(0, 36, 39.6));
 
     shader->setInteger("maxIterations", maxIterations);
     shader->setInteger("stepLimit",     110);
@@ -383,7 +405,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     drawAlignedQuad();
 
     glUseProgramObjectARB(0);
-    glActiveTextureARB(GL_TEXTURE0);
+//    glActiveTextureARB(GL_TEXTURE0);
 
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glEnable(GL_BLEND);

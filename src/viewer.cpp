@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
     display.enableVsync(true);
 
-    display.init("DistanceFieldViewer", width, height, fullscreen);
+    display.init("Mandelbulb Viewer", width, height, fullscreen);
 
     if(multisample) glEnable(GL_MULTISAMPLE_ARB);
 

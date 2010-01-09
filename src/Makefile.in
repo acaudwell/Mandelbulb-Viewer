@@ -6,7 +6,7 @@ CXXFLAGS = @CXXFLAGS@
 SUBDIRS = core
 CXX = g++
 CC = gcc
-objects = viewer.o vcamera.o
+objects = viewer.o vcamera.o ppm.o
 
 all:	
 	for dir in ${SUBDIRS} ; do ( cd $$dir ; ${MAKE} all ); done

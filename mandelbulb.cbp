@@ -63,6 +63,8 @@
 		<Unit filename="src\core\texture.cpp" />
 		<Unit filename="src\core\texture.h" />
 		<Unit filename="src\core\vectors.h" />
+		<Unit filename="src\ppm.cpp" />
+		<Unit filename="src\ppm.h" />
 		<Unit filename="src\vcamera.cpp" />
 		<Unit filename="src\vcamera.h" />
 		<Unit filename="src\viewer.cpp" />

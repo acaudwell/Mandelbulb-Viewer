@@ -17,6 +17,128 @@
 
 #include "viewer.h"
 
+
+#ifdef _WIN32
+HWND consoleWindow = 0;
+
+void createWindowsConsole() {
+    if(consoleWindow !=0) return;
+
+    //create a console on Windows so users can see messages
+
+    //find an available name for our window
+    int console_suffix = 0;
+    char consoleTitle[512];
+    sprintf(consoleTitle, "%s", "Mandelbulb Console");
+
+    while(FindWindow(0, consoleTitle)) {
+        sprintf(consoleTitle, "Mandelbulb Console %d", ++console_suffix);
+    }
+
+    AllocConsole();
+    SetConsoleTitle(consoleTitle);
+
+    //redirect streams to console
+    freopen("conin$", "r", stdin);
+    freopen("conout$","w", stdout);
+    freopen("conout$","w", stderr);
+
+    consoleWindow = 0;
+
+    //wait for our console window
+    while(consoleWindow==0) {
+        consoleWindow = FindWindow(0, consoleTitle);
+        SDL_Delay(100);
+    }
+
+    //disable the close button so the user cant crash gource
+    HMENU hm = GetSystemMenu(consoleWindow, false);
+    DeleteMenu(hm, SC_CLOSE, MF_BYCOMMAND);
+}
+#endif
+
+//info message
+void mandelbulb_info(std::string msg) {
+#ifdef _WIN32
+    createWindowsConsole();
+#endif
+
+    printf("%s\n", msg.c_str());
+
+#ifdef _WIN32
+    printf("\nPress Enter\n");
+    getchar();
+#endif
+
+    exit(0);
+}
+
+//display error only
+void mandelbulb_quit(std::string error) {
+    SDL_Quit();
+
+#ifdef _WIN32
+    createWindowsConsole();
+#endif
+
+    printf("Error: %s\n\n", error.c_str());
+
+#ifdef _WIN32
+    printf("Press Enter\n");
+    getchar();
+#endif
+
+    exit(1);
+}
+
+//display help message + error (optional)
+void mandelbulb_help(std::string error) {
+
+#ifdef _WIN32
+    createWindowsConsole();
+
+    //resize window to fit help message
+    if(consoleWindow !=0) {
+        RECT windowRect;
+        if(GetWindowRect(consoleWindow, &windowRect)) {
+            float width = windowRect.right - windowRect.left;
+            MoveWindow(consoleWindow,windowRect.left,windowRect.top,width,400,true);
+        }
+    }
+#endif
+
+    printf("Mandelbulb Viewer v%s\n", MANDELBULB_VIEWER_VERSION);
+
+    if(error.size()) {
+        printf("Error: %s\n\n", error.c_str());
+    }
+
+    printf("Usage: mandelbulb [OPTIONS] [FILE]\n");
+    printf("\nOptions:\n");
+    printf("  -h, --help                       Help\n\n");
+    printf("  -WIDTHxHEIGHT                    Set window size\n");
+    printf("  -f                               Fullscreen\n\n");
+
+    printf("  --multi-sampling         Enable multi-sampling\n\n");
+
+    printf("  --output-ppm-stream FILE Write frames as PPM to a file ('-' for STDOUT)\n");
+    printf("  --output-framerate FPS   Framerate of output (25,30,60)\n\n");
+
+    printf("FILE may be a Mandelbulb conf file or a recording file.\n\n");
+
+#ifdef _WIN32
+    printf("Press Enter\n");
+    getchar();
+#endif
+
+    //check if we should use an error code
+    if(error.size()) {
+        exit(1);
+    } else {
+        exit(0);
+    }
+}
+
 int main(int argc, char *argv[]) {
 
     int width  = 1024;
@@ -24,18 +146,72 @@ int main(int argc, char *argv[]) {
     bool fullscreen=false;
     bool multisample=false;
 
-    for (int i=0; i<argc; i++) {
-        if(i==0) continue;
+    std::string conffile;
 
-        std::string args(argv[i]);
+    std::string ppm_file_name;
+    int video_framerate = 60;
+
+    std::vector<std::string> arguments;
+
+    SDLAppParseArgs(argc, argv, &width, &height, &fullscreen, &arguments);
+
+    for(int i=0;i<arguments.size();i++) {
+        std::string args = arguments[i];
+
+        if(args == "-h" || args == "-?" || args == "--help") {
+            mandelbulb_help("");
+        }
+
+        if(args == "--output-ppm-stream") {
+
+            if((i+1)>=arguments.size()) {
+                mandelbulb_help("specify ppm output file or '-' for stdout");
+            }
+
+            ppm_file_name = arguments[++i];
+
+#ifdef _WIN32
+            if(ppm_file_name == "-") {
+                mandelbulb_help("stdout PPM mode not supported on Windows");
+            }
+#endif
+            continue;
+        }
+
+        if(args == "--output-framerate") {
+
+            if((i+1)>=arguments.size()) {
+                mandelbulb_help("specify framerate (25,30,60)");
+            }
+
+            video_framerate = atoi(arguments[++i].c_str());
+
+            if(   video_framerate != 25
+               && video_framerate != 30
+               && video_framerate != 60) {
+                mandelbulb_help("supported framerates are 25,30,60");
+            }
+
+            continue;
+        }
+
+        // assume this is the log file
+        if(args == "-" || args.size() >= 1 && args[0] != '-') {
+            conffile = args;
+            continue;
+        }
 
         if(args == "--multi-sampling") {
             multisample = true;
             continue;
         }
-    }
 
-    SDLAppParseArgs(argc, argv, &width, &height, &fullscreen);
+        // unknown argument
+        std::string arg_error = std::string("unknown option ") + std::string(args);
+
+        mandelbulb_help(arg_error);
+
+    }
 
     display.enableShaders(true);
 
@@ -49,7 +225,12 @@ int main(int argc, char *argv[]) {
 
     if(multisample) glEnable(GL_MULTISAMPLE_ARB);
 
-    MandelbulbViewer* viewer = new MandelbulbViewer();
+    MandelbulbViewer* viewer = new MandelbulbViewer(conffile);
+
+    if(ppm_file_name.size()) {
+        viewer->createVideo(ppm_file_name, video_framerate);
+    }
+
     viewer->run();
 
     delete viewer;
@@ -59,7 +240,7 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-MandelbulbViewer::MandelbulbViewer() : SDLApp() {
+MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
     shaderfile = "MandelbulbQuick";
 
     shader = 0;
@@ -71,15 +252,25 @@ MandelbulbViewer::MandelbulbViewer() : SDLApp() {
 
     view.setPos(vec3f(0.0, 0.0, 2.6));
 
-    power = 8.0f;
+    power = 8.0;
     maxIterations = 6;
+    epsilonScale = 1.0;
+    lod = 1.0;
 
     play = false;
     record = false;
 
+    mouselook = false;
+    roll      = false;
+
+    runtime = 0.0;
+    frame_skip = 0;
     frame_count = 0;
-    frame_skip  = 30;
-    frame_delta = 0.0;
+    fixed_tick_rate = 0.0;
+
+    frameExporter = 0;
+    record_frame_skip  = 15;
+    record_frame_delta = 0.0;
 
     animated = false;
     juliaset = false;
@@ -102,10 +293,29 @@ MandelbulbViewer::MandelbulbViewer() : SDLApp() {
 
 MandelbulbViewer::~MandelbulbViewer() {
     if(shader != 0) delete shader;
+    if(frameExporter != 0) delete frameExporter;
+}
+
+void MandelbulbViewer::createVideo(std::string filename, int video_framerate) {
+    int fixed_framerate = video_framerate;
+
+    frame_count = 0;
+    frame_skip  = 0;
+
+    //calculate appropriate tick rate for video frame rate
+    while(fixed_framerate<60) {
+        fixed_framerate += video_framerate;
+        this->frame_skip++;
+    }
+
+    this->fixed_tick_rate = 1.0f / ((float) fixed_framerate);
+
+    this->frameExporter = new PPMExporter(filename);
 }
 
 void MandelbulbViewer::randomizeJuliaSeed() {
-    juliaseed = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ) / 1000.0f;
+    juliaseed = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ).normal();
+//    juliaseed = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ) / 1000.0f;
 }
 
 void MandelbulbViewer::randomizeColours() {
@@ -117,9 +327,6 @@ void MandelbulbViewer::randomizeColours() {
 
 void MandelbulbViewer::init() {
     display.setClearColour(vec3f(0.0, 0.0, 0.0));
-
-    SDL_ShowCursor(false);
-    SDL_WM_GrabInput(SDL_GRAB_ON);
 
     shader = shadermanager.grab(shaderfile);
 
@@ -171,15 +378,32 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym ==  SDLK_LEFTBRACKET) {
-            if(maxIterations>1) maxIterations--;
+            epsilonScale = std::max( epsilonScale / 1.1, 0.00001);
         }
 
         if (e->keysym.sym ==  SDLK_RIGHTBRACKET) {
+            epsilonScale = std::min( epsilonScale * 1.1, 1.0);
+        }
+
+        if (e->keysym.sym ==  SDLK_COMMA) {
+            lod = std::max( lod / 1.1, 0.00001);
+        }
+
+        if (e->keysym.sym ==  SDLK_PERIOD) {
+            lod = std::min( lod * 1.1, 1.0);
+        }
+
+        if (e->keysym.sym ==  SDLK_F1) {
+            if(maxIterations>1) maxIterations--;
+        }
+
+        if (e->keysym.sym ==  SDLK_F2) {
             maxIterations++;
         }
 
         if (e->keysym.sym ==  SDLK_MINUS) {
-            if(power>1.0) power -= 1.0;
+//            if(power>1.0) power -= 1.0;
+            power -= 1.0;
         }
 
         if (e->keysym.sym ==  SDLK_EQUALS) {
@@ -201,8 +425,7 @@ void MandelbulbViewer::toggleRecord() {
     if(play) return;
 
     record = !record;
-
-    frame_delta = 0.0;
+    record_frame_delta = 0.0;
 
     //start new recording
     if(record) {
@@ -226,12 +449,49 @@ void MandelbulbViewer::addWaypoint(float duration) {
 void MandelbulbViewer::mouseMove(SDL_MouseMotionEvent *e) {
 
     //debugLog("mouseMove %d %d\n", e->xrel, e->yrel);
-
-    view.rotateY((e->xrel / 10.0f) * DEGREES_TO_RADIANS);
-    view.rotateX((e->yrel / 10.0f) * DEGREES_TO_RADIANS);
+    if(mouselook) {
+        if(roll) {
+            view.rotateZ(-(e->xrel / 10.0f) * DEGREES_TO_RADIANS);
+            view.rotateX(-(e->yrel / 10.0f) * DEGREES_TO_RADIANS);
+        } else {
+            view.rotateY((e->xrel / 10.0f) * DEGREES_TO_RADIANS);
+            view.rotateX((e->yrel / 10.0f) * DEGREES_TO_RADIANS);
+        }
+   }
 }
 
 void MandelbulbViewer::mouseClick(SDL_MouseButtonEvent *e) {
+
+    if(e->state == SDL_PRESSED) {
+        if(e->button == SDL_BUTTON_RIGHT) {
+            //save mouse position
+            mousepos = vec2f(e->x, e->y);
+
+            mouselook=true;
+            SDL_ShowCursor(false);
+            SDL_WM_GrabInput(SDL_GRAB_ON);
+        }
+
+        if(e->button == SDL_BUTTON_LEFT && mouselook) {
+            roll = true;
+        }
+    }
+
+    if(e->state == SDL_RELEASED) {
+        if(e->button == SDL_BUTTON_LEFT && mouselook) {
+            roll = false;
+        }
+
+        if(e->button == SDL_BUTTON_RIGHT) {
+            mouselook=false;
+            SDL_ShowCursor(true);
+            SDL_WM_GrabInput(SDL_GRAB_OFF);
+
+            //warp to last position
+            SDL_WarpMouse(mousepos.x, mousepos.y);
+        }
+    }
+
 }
 
 void MandelbulbViewer::moveCam(float dt) {
@@ -243,7 +503,7 @@ void MandelbulbViewer::moveCam(float dt) {
     float cam_distance = campos.length2();
     cam_distance *= cam_distance;
 
-    float amount = std::min(1.0f, cam_distance) * dt;
+    float amount = 0.25 * std::min(1.0f, cam_distance) * dt;
 
     Uint8* keyState = SDL_GetKeyState(NULL);
 
@@ -313,10 +573,25 @@ void MandelbulbViewer::drawAlignedQuad() {
 }
 
 void MandelbulbViewer::update(float t, float dt) {
-    dt = std::min(dt, 1.0f/60.0f);
+//    dt = std::max(dt, 1.0f/60.0f);
 
-    logic(t,dt);
-    draw(t, dt);
+    //if exporting a video use a fixed tick rate rather than time based
+    if(frameExporter != 0) dt = fixed_tick_rate;
+
+    runtime += dt;
+
+    logic(runtime, dt);
+    draw(runtime, dt);
+
+    //extract frames based on frameskip setting
+    //if frameExporter defined
+    if(frameExporter != 0) {
+        if(frame_count % (frame_skip+1) == 0) {
+            frameExporter->dump();
+        }
+    }
+
+    frame_count++;
 }
 
 void MandelbulbViewer::logic(float t, float dt) {
@@ -327,11 +602,15 @@ void MandelbulbViewer::logic(float t, float dt) {
         moveCam(dt);
     }
 
+    //roll doesnt make any sense unless mouselook
+    //is enabled
+    if(!mouselook) roll = false;
+
     if(record) {
-        frame_delta += dt;
-        if(frame_count % frame_skip == 0) {
-            addWaypoint(frame_delta);
-            frame_delta = 0.0;
+        record_frame_delta += dt;
+        if(frame_count % record_frame_skip == 0) {
+            addWaypoint(record_frame_delta);
+            record_frame_delta = 0.0;
         }
     }
 
@@ -392,11 +671,11 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setInteger("antialiasing", 0);
     shader->setInteger("phong", 1);
     shader->setFloat("shadows", 0.0f);
-    shader->setFloat("ambientOcclusion", 0.8f);
+    shader->setFloat("ambientOcclusion", 0.5f);
     shader->setFloat("ambientOcclusionEmphasis", 0.58f);
     shader->setFloat("colorSpread",      0.2f);
     shader->setFloat("rimLight",         0.0f);
-    shader->setFloat("specularity",      0.0f);
+    shader->setFloat("specularity",      0.8f);
     shader->setFloat("specularExponent", 15.0f);
 
     shader->setVec3("light", vec3f(38, -42, 38));
@@ -411,7 +690,8 @@ void MandelbulbViewer::draw(float t, float dt) {
 
     shader->setInteger("maxIterations", maxIterations);
     shader->setInteger("stepLimit",     110);
-    shader->setFloat("epsilonScale",    1.0);
+    shader->setFloat("epsilonScale",    epsilonScale);
+    shader->setFloat("lod", lod);
 
     shader->setInteger("backgroundGradient", backgroundGradient);
     shader->setFloat("fov",  45.0);
@@ -441,8 +721,13 @@ void MandelbulbViewer::draw(float t, float dt) {
         font.print(0, 0, "fps: %.2f", fps);
         font.print(0, 20, "camera: %.2f,%.2f,%.2f", campos.x, campos.y, campos.z);
         font.print(0, 40, "power: %.2f", power);
+        font.print(0, 60, "maxIterations: %d", maxIterations);
+        font.print(0, 80, "epsilonScale: %.5f", epsilonScale);
+        font.print(0, 100,"lod: %.5f", lod);
+        font.print(0, 120,"dt: %.5f", dt);
+
         if(juliaset) {
-            font.print(0, 80, "juliaset seed: %.2f,%.2f,%.2f", _juliaseed.x, _juliaseed.y, _juliaseed.z);
+            font.print(0, 140, "juliaset seed: %.2f,%.2f,%.2f", _juliaseed.x, _juliaseed.y, _juliaseed.z);
         }
     }
 

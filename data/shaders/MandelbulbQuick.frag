@@ -73,6 +73,7 @@ uniform float specularExponent;
 uniform int   maxIterations;
 uniform int   stepLimit;
 uniform float epsilonScale;
+uniform float lod;
 
 uniform mat3 viewRotation;
 uniform mat3 objRotation;
@@ -154,10 +155,8 @@ float DE(vec3 z0, inout float min_dist)
 		if (r > bailout) break;
 	}
 
-	return (1.0/epsilonScale) * 0.5 * log(r) * r / dr;
+	return 0.5 * log(r) * r / dr;
 }
-
-
 
 // Intersect bounding sphere
 //
@@ -264,6 +263,7 @@ vec3 rayDirection(vec2 p)
         exp(cameraZoom)
     );
 
+
 //	vec3 direction = vec3( 2.0 * aspectRatio * p.x / float(size.x) - aspectRatio,
 //					      -2.0 * p.y / float(size.y) + 1.0,
 //						  -2.0 * exp(cameraZoom));
@@ -290,6 +290,7 @@ vec4 renderPixel(vec2 pixel)
 
         // number of raymarching steps scales inversely with factor
         int max_steps = int(float(stepLimit) / epsilonScale);
+
         int i;
         float f;
 
@@ -300,6 +301,8 @@ vec4 renderPixel(vec2 pixel)
             f = epsilonScale * dist;
             ray += f * ray_direction;
             ray_length += f * dist;
+
+            dist *= lod;
 
             // Are we within the intersection threshold or completely missed the fractal
             if (dist < eps || ray_length > tmax) {

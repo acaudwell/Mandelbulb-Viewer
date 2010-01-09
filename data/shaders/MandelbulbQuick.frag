@@ -300,7 +300,7 @@ vec4 renderPixel(vec2 pixel)
             // March ray forward
             f = epsilonScale * dist;
             ray += f * ray_direction;
-            ray_length += f * dist;
+            ray_length += f;
 
             dist *= lod;
 

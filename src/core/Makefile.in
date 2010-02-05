@@ -2,7 +2,7 @@ prefix = @prefix@
 exec_prefix = ${prefix}
 bindir = ${exec_prefix}/bin
 datarootdir = @datarootdir@
-sdlappdatadir = $(datarootdir)/confhud
+sdlappdatadir = $(datarootdir)/mandelbulb
 sdlappfontdir = @sdlappfontdir@
 
 CXX = g++

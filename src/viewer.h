@@ -30,9 +30,7 @@
 
 #define MANDELBULB_VIEWER_VERSION "0.1"
 
-void mandelbulb_info(std::string msg);
-void mandelbulb_quit(std::string error);
-void mandelbulb_help(std::string error);
+void mandelbulb_help();
 
 class MandelbulbViewer : public SDLApp {
 

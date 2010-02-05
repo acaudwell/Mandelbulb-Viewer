@@ -41,13 +41,7 @@ TextureResource* TextureManager::grab(std::string name, int mipmaps, int clamp, 
     if(r==0) {
         //debugLog("%s not found. creating resource...\n", name.c_str());
 
-        try {
         r = new TextureResource(name, mipmaps, clamp, trilinear, external_file);
-        }
-        catch(TextureException& exception) {
-            printf("failed to load texture '%s'\n", exception.what());
-            exit(1);
-        }
 
         resources[name] = r;
     }

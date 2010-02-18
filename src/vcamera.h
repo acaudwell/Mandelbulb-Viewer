@@ -29,6 +29,7 @@
 #define VIEW_CAMERA
 
 #include "core/matrix.h"
+#include "core/conffile.h"
 
 #include <vector>
 
@@ -38,6 +39,8 @@ protected:
     vec3f pos;
 public:
     Object3D();
+    Object3D(vec3f pos, vec3f up, vec3f side, vec3f forward);
+
     void setPos(vec3f pos);
 
     void setSide(vec3f side);
@@ -61,26 +64,13 @@ public:
 class ViewCamera : public Object3D {
 public:
     ViewCamera();
+    ViewCamera(vec3f pos, vec3f up, vec3f side, vec3f forward);
 
     ViewCamera interpolate(ViewCamera& obj, float dt);
 
 };
 
-
 class ViewCameraEvent {
-protected:
-    bool finished;
-public:
-    ViewCameraEvent();
-    bool isFinished();
-
-    virtual ViewCamera getCamera() { return ViewCamera(); };
-
-    virtual void prepare(ViewCameraEvent& prev) { finished = false;};
-    virtual void logic(float dt, ViewCamera* cam) {};
-};
-
-class ViewCameraMoveEvent : public ViewCameraEvent {
 
     float duration;
     float elapsed;
@@ -88,10 +78,15 @@ class ViewCameraMoveEvent : public ViewCameraEvent {
     ViewCamera start;
     ViewCamera finish;
 
+    bool finished;
 public:
-    ViewCameraMoveEvent(const ViewCamera& cam, float duration = 0.0);
+    ViewCameraEvent();
+    ViewCameraEvent(const ViewCamera& cam, float duration = 0.0);
 
     ViewCamera getCamera();
+    float getDuration();
+
+    bool isFinished();
 
     void prepare(ViewCameraEvent& prev);
     void logic(float dt, ViewCamera* cam);
@@ -108,6 +103,9 @@ class ViewCameraPath {
 public:
     ViewCameraPath(bool loop = false);
     ~ViewCameraPath();
+
+    void load(ConfFile& conf);
+    void save(ConfFile& conf);
 
     size_t size();
 

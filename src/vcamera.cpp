@@ -33,6 +33,13 @@ Object3D::Object3D() {
     forward = vec3f(0.0, 0.0, 1.0);
 }
 
+Object3D::Object3D(vec3f pos, vec3f up, vec3f side, vec3f forward) {
+    this->pos     = pos;
+    this->up      = up;
+    this->side    = side;
+    this->forward = forward;
+}
+
 void Object3D::setPos(vec3f pos) {
     this->pos = pos;
 }
@@ -131,7 +138,11 @@ mat3f Object3D::getRotationMatrix() {
 
 // ViewCamera
 
-ViewCamera::ViewCamera() : Object3D() {
+ViewCamera::ViewCamera() {
+}
+
+ViewCamera::ViewCamera(vec3f pos, vec3f up, vec3f side, vec3f forward)
+    : Object3D(pos, up, side, forward) {
 }
 
 ViewCamera ViewCamera::interpolate(ViewCamera& obj, float dt) {
@@ -156,9 +167,7 @@ bool ViewCameraEvent::isFinished() {
     return finished;
 }
 
-// ViewCameraMoveEvent
-
-ViewCameraMoveEvent::ViewCameraMoveEvent(const ViewCamera& cam, float duration) : ViewCameraEvent() {
+ViewCameraEvent::ViewCameraEvent(const ViewCamera& cam, float duration) {
     this->start  = cam;
     this->finish = cam;
     this->duration = duration;
@@ -166,17 +175,21 @@ ViewCameraMoveEvent::ViewCameraMoveEvent(const ViewCamera& cam, float duration) 
     finished = false;
 }
 
-void ViewCameraMoveEvent::prepare(ViewCameraEvent& prev) {
+void ViewCameraEvent::prepare(ViewCameraEvent& prev) {
     this->start = prev.getCamera();
     finished=false;
     elapsed = 0.0;
 }
 
-ViewCamera ViewCameraMoveEvent::getCamera() {
+float ViewCameraEvent::getDuration() {
+    return duration;
+}
+
+ViewCamera ViewCameraEvent::getCamera() {
     return finish;
 }
 
-void ViewCameraMoveEvent::logic(float dt, ViewCamera* cam) {
+void ViewCameraEvent::logic(float dt, ViewCamera* cam) {
     elapsed += dt;
 
     if(elapsed >= duration || duration <= 0.0f) {
@@ -200,6 +213,51 @@ ViewCameraPath::ViewCameraPath(bool loop) {
 
 ViewCameraPath::~ViewCameraPath() {
     clear();
+}
+
+void ViewCameraPath::load(ConfFile& conf) {
+
+    clear();
+
+    ConfSectionList* cameralist = conf.getSections("camera");
+
+    if(cameralist==0) return;
+
+    for(ConfSectionList::iterator it = cameralist->begin();
+          it != cameralist->end(); it++) {
+
+        ConfSection* section = *it;
+
+        ViewCamera cam(section->getVec3("pos"),
+                       section->getVec3("up"),
+                       section->getVec3("side"),
+                       section->getVec3("forward"));
+
+        ViewCameraEvent* e =
+            new ViewCameraEvent(cam, section->getFloat("duration"));
+
+        addEvent(e);
+    }
+}
+
+void ViewCameraPath::save(ConfFile& conf) {
+
+    for(std::vector<ViewCameraEvent*>::iterator it = events.begin(); it != events.end(); it++) {
+
+        ViewCameraEvent* event = *it;
+
+        ConfSection* section = new ConfSection("camera");
+
+        ViewCamera cam = event->getCamera();
+
+        section->setEntry(new ConfEntry("pos",     cam.getPos()));
+        section->setEntry(new ConfEntry("up",      cam.getUp()));
+        section->setEntry(new ConfEntry("side",    cam.getSide()));
+        section->setEntry(new ConfEntry("forward", cam.getForward()));
+        section->setEntry(new ConfEntry("duration", event->getDuration()));
+
+        conf.addSection(section);
+    }
 }
 
 bool ViewCameraPath::isFinished() {

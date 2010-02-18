@@ -18,6 +18,8 @@
 #ifndef MANDELBULB_VIEWER_H
 #define MANDELBULB_VIEWER_H
 
+#include <time.h>
+
 #include "core/sdlapp.h"
 #include "core/display.h"
 #include "core/shader.h"
@@ -80,13 +82,38 @@ class MandelbulbViewer : public SDLApp {
 
     bool backgroundGradient;
     bool juliaset;
-    vec3f juliaseed;
+    vec3f julia_c;
 
+    float speed;
+    float fov;
+    float cameraZoom;
+
+    int antialiasing;
+    bool phong;
+
+    float shadows;
+
+    float specularity;
+    float specularExponent;
+
+    float ambientOcclusion;
+    float ambientOcclusionEmphasis;
 
     float power;
+    float bounding;
+    float bailout;
     float lod;
     float epsilonScale;
     int maxIterations;
+    int stepLimit;
+
+    bool radiolaria;
+    float radiolariaFactor;
+
+    float colorSpread;
+    float rimLight;
+
+    vec3f light;
 
     vec4f  backgroundColor;
     vec4f  diffuseColor;
@@ -102,6 +129,8 @@ class MandelbulbViewer : public SDLApp {
     void addWaypoint(float duration);
 
     void moveCam(float dt);
+
+    void setDefaults();
 public:
     MandelbulbViewer(std::string conffile);
     ~MandelbulbViewer();
@@ -110,6 +139,9 @@ public:
     void draw(float t, float dt);
 
     void createVideo(std::string filename, int video_framerate);
+
+    bool readConfig();
+    void saveConfig(bool saverec);
 
     //inherited methods
     void init();

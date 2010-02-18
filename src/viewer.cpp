@@ -146,7 +146,7 @@ int main(int argc, char *argv[]) {
     bool fullscreen=false;
     bool multisample=false;
 
-    std::string conffile;
+    std::string conffile = "mandelbulb.conf";
 
     std::string ppm_file_name;
     int video_framerate = 60;
@@ -252,16 +252,12 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
 
     view.setPos(vec3f(0.0, 0.0, 2.6));
 
-    power = 8.0;
-    maxIterations = 6;
-    epsilonScale = 1.0;
-    lod = 1.0;
-
     play = false;
     record = false;
 
     mouselook = false;
     roll      = false;
+
 
     runtime = 0.0;
     frame_skip = 0;
@@ -269,26 +265,33 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
     fixed_tick_rate = 0.0;
 
     frameExporter = 0;
-    record_frame_skip  = 15;
+    record_frame_skip  = 1;
     record_frame_delta = 0.0;
-
-    animated = false;
-    juliaset = false;
-    backgroundGradient = true;
-
-    //todo: config file for defaults?
-
-    backgroundColor = vec4f(0.0, 0.0, 0.0, 1.0);
-    diffuseColor    = vec4f(0.0, 0.85, 0.99, 1.0);
-    ambientColor    = vec4f(0.67, 0.85, 1.0, 1.0);
-    lightColor      = vec4f(0.48, 0.59, 0.66, 1.0);
 
     srand(time(0));
 
     randomizeJuliaSeed();
 
+    setDefaults();
+
     //ignore mouse motion until we have finished setting up
     SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
+
+    if(conffile.size()) {
+
+        conf.setFilename(conffile);
+
+        if(readConfig()) {
+
+            //load recording
+            if(conf.hasSection("camera")) {
+                campath.load(conf);
+                play=true;
+            }
+        } else {
+            conf.clear();
+        }
+    }
 }
 
 MandelbulbViewer::~MandelbulbViewer() {
@@ -314,8 +317,7 @@ void MandelbulbViewer::createVideo(std::string filename, int video_framerate) {
 }
 
 void MandelbulbViewer::randomizeJuliaSeed() {
-    juliaseed = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ).normal();
-//    juliaseed = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ) / 1000.0f;
+    julia_c = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ).normal();
 }
 
 void MandelbulbViewer::randomizeColours() {
@@ -343,6 +345,14 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
         if (e->keysym.sym == SDLK_ESCAPE) {
             appFinished=true;
+        }
+
+        if (e->keysym.sym == SDLK_F5) {
+            readConfig();
+        }
+
+        if (e->keysym.sym == SDLK_F6) {
+            saveConfig(false);
         }
 
         if (e->keysym.sym == SDLK_r) {
@@ -382,7 +392,7 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym ==  SDLK_RIGHTBRACKET) {
-            epsilonScale = std::min( epsilonScale * 1.1, 1.0);
+            epsilonScale = std::min( epsilonScale * 1.1, 2.0);
         }
 
         if (e->keysym.sym ==  SDLK_COMMA) {
@@ -421,6 +431,152 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
 }
 
+void MandelbulbViewer::setDefaults() {
+
+    fov = 45.0f;
+    cameraZoom = 0.0f;
+    speed = 0.25;
+
+    power = 8.0;
+    bounding = 3.0f;
+    bailout = 4.0f;
+
+    stepLimit = 110;
+    maxIterations = 6;
+    epsilonScale = 1.0;
+    lod = 1.0;
+
+    phong = true;
+    antialiasing = 0;
+    shadows = 0.0;
+    specularity = 0.7;
+    specularExponent = 15.0;
+    ambientOcclusion = 0.5f;
+    ambientOcclusionEmphasis = 0.58f;
+
+    radiolaria = false;
+    radiolariaFactor = 0.0f;
+
+    colorSpread = 0.2;
+    rimLight = 0.0;
+
+    animated = false;
+    juliaset = false;
+    backgroundGradient = true;
+
+    light = vec3f(38, -42, 38);
+
+    backgroundColor = vec4f(0.0, 0.0, 0.0, 1.0);
+    diffuseColor    = vec4f(0.0, 0.85, 0.99, 1.0);
+    ambientColor    = vec4f(0.67, 0.85, 1.0, 1.0);
+    lightColor      = vec4f(0.48, 0.59, 0.66, 1.0);
+}
+
+
+void MandelbulbViewer::saveConfig(bool saverec) {
+
+    if(saverec) {
+        conf.setFilename("recording.conf");
+    } else {
+        conf.setFilename("mandelbulb.conf");
+    }
+
+    ConfSection* section = new ConfSection("mandelbulb");
+
+    //save settings
+
+    section->setEntry(new ConfEntry("animated", animated));
+    section->setEntry(new ConfEntry("juliaset", juliaset));
+    section->setEntry(new ConfEntry("julia_c", julia_c));
+    section->setEntry(new ConfEntry("radiolaria", radiolaria));
+    section->setEntry(new ConfEntry("radiolariaFactor", radiolariaFactor));
+
+    section->setEntry(new ConfEntry("power", power));
+    section->setEntry(new ConfEntry("bounding", bounding));
+    section->setEntry(new ConfEntry("bailout", bailout));
+
+    section->setEntry(new ConfEntry("antialiasing", antialiasing));
+    section->setEntry(new ConfEntry("phong", phong));
+    section->setEntry(new ConfEntry("shadows", shadows));
+    section->setEntry(new ConfEntry("ambientOcclusion", ambientOcclusion));
+    section->setEntry(new ConfEntry("ambientOcclusionEmphasis", ambientOcclusionEmphasis));
+    section->setEntry(new ConfEntry("colorSpread", colorSpread));
+    section->setEntry(new ConfEntry("rimLight", rimLight));
+    section->setEntry(new ConfEntry("specularity", specularity));
+    section->setEntry(new ConfEntry("specularExponent", specularExponent));
+    section->setEntry(new ConfEntry("light", light));
+
+    section->setEntry(new ConfEntry("backgroundColor", backgroundColor));
+    section->setEntry(new ConfEntry("diffuseColor", diffuseColor));
+    section->setEntry(new ConfEntry("ambientColor", ambientColor));
+    section->setEntry(new ConfEntry("lightColor", lightColor));
+
+    section->setEntry(new ConfEntry("maxIterations", maxIterations));
+    section->setEntry(new ConfEntry("stepLimit", stepLimit));
+    section->setEntry(new ConfEntry("epsilonScale", epsilonScale));
+    section->setEntry(new ConfEntry("lod", lod));
+
+    section->setEntry(new ConfEntry("backgroundGradient", backgroundGradient));
+    section->setEntry(new ConfEntry("fov", fov));
+    section->setEntry(new ConfEntry("speed", speed));
+
+    conf.setSection(section);
+
+    if(saverec) {
+        campath.save(conf);
+    }
+
+    conf.save();
+}
+
+bool MandelbulbViewer::readConfig() {
+
+    if(conf.getFilename().size()==0) return false;
+
+    if(!conf.load()) return false;
+
+    ConfSection* settings = conf.getSection("mandelbulb");
+
+    if(settings == 0) return true;
+
+    animated         = settings->getBool("animated");
+    juliaset         = settings->getBool("juliaset");
+    julia_c          = settings->getVec3("julia_c");
+    radiolaria       = settings->getBool("radiolaria");
+    radiolariaFactor = settings->getFloat("radiolariaFactor");
+
+    power            = settings->getFloat("power");
+    bounding         = settings->getFloat("bounding");
+    bailout          = settings->getFloat("bailout");
+
+    antialiasing     = settings->getInt("antialiasing");
+    phong            = settings->getBool("phong");
+    shadows          = settings->getFloat("shadows");
+    ambientOcclusion = settings->getFloat("ambientOcclusion");
+    ambientOcclusionEmphasis = settings->getFloat("ambientOcclusionEmphasis");
+    colorSpread      = settings->getFloat("colorSpread");
+    rimLight         = settings->getFloat("rimLight");
+    specularity      = settings->getFloat("specularity");
+    specularExponent = settings->getFloat("specularExponent");
+    light            = settings->getVec3("light");
+    backgroundColor  = settings->getVec4("backgroundColor");
+    diffuseColor     = settings->getVec4("diffuseColor");
+    ambientColor     = settings->getVec4("ambientColor");
+    lightColor       = settings->getVec4("lightColor");
+
+    maxIterations    = settings->getInt("maxIterations");
+    stepLimit        = settings->getInt("stepLimit");
+    epsilonScale     = settings->getFloat("epsilonScale");
+
+    lod              = settings->getFloat("lod");
+    backgroundGradient = settings->getBool("backgroundGradient");
+
+    fov              = settings->getFloat("fov");
+
+    return true;
+}
+
+
 void MandelbulbViewer::toggleRecord() {
     if(play) return;
 
@@ -430,6 +586,8 @@ void MandelbulbViewer::toggleRecord() {
     //start new recording
     if(record) {
         campath.clear();
+    } else {
+        saveConfig(true);
     }
 }
 
@@ -443,7 +601,7 @@ void MandelbulbViewer::togglePlay() {
 void MandelbulbViewer::addWaypoint(float duration) {
     if(campath.size()==0) duration = 0.0;
 
-    ViewCameraMoveEvent* e = new ViewCameraMoveEvent(view, duration);
+    ViewCameraEvent* e = new ViewCameraEvent(view, duration);
     campath.addEvent(e);
 }
 void MandelbulbViewer::mouseMove(SDL_MouseMotionEvent *e) {
@@ -452,7 +610,7 @@ void MandelbulbViewer::mouseMove(SDL_MouseMotionEvent *e) {
     if(mouselook) {
         if(roll) {
             view.rotateZ(-(e->xrel / 10.0f) * DEGREES_TO_RADIANS);
-            view.rotateX(-(e->yrel / 10.0f) * DEGREES_TO_RADIANS);
+            view.rotateX((e->yrel / 10.0f) * DEGREES_TO_RADIANS);
         } else {
             view.rotateY((e->xrel / 10.0f) * DEGREES_TO_RADIANS);
             view.rotateX((e->yrel / 10.0f) * DEGREES_TO_RADIANS);
@@ -475,6 +633,15 @@ void MandelbulbViewer::mouseClick(SDL_MouseButtonEvent *e) {
         if(e->button == SDL_BUTTON_LEFT && mouselook) {
             roll = true;
         }
+
+        if(e->button == SDL_BUTTON_WHEELUP) {
+            speed *= 2.0;
+        }
+
+        if(e->button == SDL_BUTTON_WHEELDOWN) {
+            speed /= 2.0;
+        }
+
     }
 
     if(e->state == SDL_RELEASED) {
@@ -503,7 +670,7 @@ void MandelbulbViewer::moveCam(float dt) {
     float cam_distance = campos.length2();
     cam_distance *= cam_distance;
 
-    float amount = 0.25 * std::min(1.0f, cam_distance) * dt;
+    float amount = speed * std::min(1.0f, cam_distance) * dt;
 
     Uint8* keyState = SDL_GetKeyState(NULL);
 
@@ -628,15 +795,13 @@ void MandelbulbViewer::draw(float t, float dt) {
         time_elapsed += dt;
     }
 
-    vec3f _juliaseed = juliaseed;
+    vec3f _julia_c = julia_c;
 
     if(animated) {
-        _juliaseed = _juliaseed + vec3f(sinf(time_elapsed), sinf(time_elapsed), atan(time_elapsed)) * 0.1;
+        _julia_c = julia_c + vec3f(sinf(time_elapsed), sinf(time_elapsed), atan(time_elapsed)) * 0.1;
     }
 
     vec3f campos = view.getPos();
-
-    float bounding = 3.0f;
 
     //to avoid a visible sphere we need to set the bounding
     //sphere to be greater than the camera's distance from the
@@ -656,29 +821,29 @@ void MandelbulbViewer::draw(float t, float dt) {
 
     shader->setVec3("camera",         campos);
     shader->setVec3("cameraFine",     vec3f(0.0f, 0.0f, 0.0f));
-    shader->setFloat("cameraZoom",    0.0f);
+    shader->setFloat("cameraZoom",    cameraZoom);
 
     shader->setInteger("julia", juliaset);
-    shader->setVec3("julia_c", _juliaseed);
+    shader->setVec3("julia_c", _julia_c);
 
-    shader->setInteger("radiolaria", 0);
-    shader->setFloat("radiolariaFactor", 0.0f);
+    shader->setInteger("radiolaria", radiolaria);
+    shader->setFloat("radiolariaFactor", radiolariaFactor);
 
     shader->setFloat("power", power);
     shader->setFloat("bounding", bounding );
-    shader->setFloat("bailout", 4.0f );
+    shader->setFloat("bailout", bailout );
 
-    shader->setInteger("antialiasing", 0);
-    shader->setInteger("phong", 1);
-    shader->setFloat("shadows", 0.0f);
-    shader->setFloat("ambientOcclusion", 0.5f);
-    shader->setFloat("ambientOcclusionEmphasis", 0.58f);
-    shader->setFloat("colorSpread",      0.2f);
-    shader->setFloat("rimLight",         0.0f);
-    shader->setFloat("specularity",      0.8f);
-    shader->setFloat("specularExponent", 15.0f);
+    shader->setInteger("antialiasing", antialiasing);
+    shader->setInteger("phong", phong);
+    shader->setFloat("shadows", shadows);
+    shader->setFloat("ambientOcclusion", ambientOcclusion);
+    shader->setFloat("ambientOcclusionEmphasis", ambientOcclusionEmphasis);
+    shader->setFloat("colorSpread",      colorSpread);
+    shader->setFloat("rimLight",         rimLight);
+    shader->setFloat("specularity",      specularity);
+    shader->setFloat("specularExponent", specularExponent);
 
-    shader->setVec3("light", vec3f(38, -42, 38));
+    shader->setVec3("light", light);
 
     shader->setVec4("backgroundColor", backgroundColor);
     shader->setVec4("diffuseColor",    diffuseColor);
@@ -689,12 +854,12 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setMat3("objRotation",  mandelbulb.getRotationMatrix());
 
     shader->setInteger("maxIterations", maxIterations);
-    shader->setInteger("stepLimit",     110);
+    shader->setInteger("stepLimit",     stepLimit);
     shader->setFloat("epsilonScale",    epsilonScale);
     shader->setFloat("lod", lod);
 
     shader->setInteger("backgroundGradient", backgroundGradient);
-    shader->setFloat("fov",  45.0);
+    shader->setFloat("fov",  fov);
 
     drawAlignedQuad();
 
@@ -719,7 +884,7 @@ void MandelbulbViewer::draw(float t, float dt) {
 
     if(debug) {
         font.print(0, 0, "fps: %.2f", fps);
-        font.print(0, 20, "camera: %.2f,%.2f,%.2f", campos.x, campos.y, campos.z);
+        font.print(0, 20, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, speed);
         font.print(0, 40, "power: %.2f", power);
         font.print(0, 60, "maxIterations: %d", maxIterations);
         font.print(0, 80, "epsilonScale: %.5f", epsilonScale);
@@ -727,7 +892,7 @@ void MandelbulbViewer::draw(float t, float dt) {
         font.print(0, 120,"dt: %.5f", dt);
 
         if(juliaset) {
-            font.print(0, 140, "juliaset seed: %.2f,%.2f,%.2f", _juliaseed.x, _juliaseed.y, _juliaseed.z);
+            font.print(0, 140, "julia_c: %.2f,%.2f,%.2f", _julia_c.x, _julia_c.y, _julia_c.z);
         }
     }
 

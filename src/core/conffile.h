@@ -15,7 +15,13 @@ public:
     ConfEntry();
     ConfEntry(std::string name);
     ConfEntry(std::string name, std::string value);
- 
+    ConfEntry(std::string name, int value);
+    ConfEntry(std::string name, float value);
+    ConfEntry(std::string name, bool value);
+    ConfEntry(std::string name, vec2f value);
+    ConfEntry(std::string name, vec3f value);
+    ConfEntry(std::string name, vec4f value);
+
     void setName(std::string name);
 
     void setString(std::string value);
@@ -25,6 +31,8 @@ public:
     void setVec2(vec2f value);
     void setVec3(vec3f value);
     void setVec4(vec4f value);
+
+    std::string getName();
 
     std::string getString();
     int         getInt();
@@ -50,10 +58,20 @@ public:
     ConfEntry* getEntry(std::string key);
     ConfEntryList* getEntries(std::string key);
 
+    void setEntry(ConfEntry* entry);
+    void addEntry(ConfEntry* entry);
+
     std::string getName();
 
-    void setEntry(std::string name, std::string value);
-    void addEntry(std::string name, std::string value);
+    bool        hasValue(std::string key);
+    std::string getString(std::string key);
+    int         getInt(std::string key);
+    float       getFloat(std::string key);
+    bool        getBool(std::string key);
+    vec3f       getVec3(std::string key);
+    vec4f       getVec4(std::string key);
+
+    void print(std::ostream& out);
 };
 
 typedef std::list<ConfSection*> ConfSectionList;
@@ -72,8 +90,12 @@ public:
     bool load(std::string conffile);
     bool load();
 
-    void save(std::string conffile);
-    void save();
+    bool save(std::string conffile);
+    bool save();
+
+
+    void setFilename(std::string filename);
+    std::string getFilename();
 
     bool hasSection(std::string section);
     ConfSection* getSection(std::string section);
@@ -82,6 +104,7 @@ public:
     ConfEntry*   getEntry(std::string section, std::string key);
     ConfEntryList* getEntries(std::string section, std::string key);
 
+    void setSection(ConfSection* section);
     void addSection(ConfSection* section);
 
     bool        hasValue(std::string section, std::string key);

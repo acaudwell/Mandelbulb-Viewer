@@ -118,7 +118,7 @@ void powN(inout vec3 z, float zr0, inout float dr)
 	dr = zr * dr * power + 1.0;
 	zr *= zr0;
 
-	z = zr * vec3(czo*cos(zi), czo*sin(zi), sin(zo));
+    z = zr * vec3(czo*cos(zi), czo*sin(zi), -sin(zo));
 }
 
 // The fractal calculation

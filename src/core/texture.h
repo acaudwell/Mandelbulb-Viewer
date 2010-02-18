@@ -33,16 +33,9 @@
 #include "resource.h"
 #include "display.h"
 
-#include <stdexcept>
-
-class TextureException : public std::exception {
-protected:
-    std::string texture_file;
+class TextureException : public ResourceException {
 public:
-    TextureException(std::string& texture_file) : texture_file(texture_file) {}
-    ~TextureException() throw () {};
-
-    virtual const char* what() const throw() { return texture_file.c_str(); }
+    TextureException(std::string& texture_file) : ResourceException(texture_file) {}
 };
 
 class TextureResource : public Resource {

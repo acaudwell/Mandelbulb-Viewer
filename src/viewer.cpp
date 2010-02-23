@@ -195,14 +195,14 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
-        // assume this is the log file
-        if(args == "-" || args.size() >= 1 && args[0] != '-') {
-            conffile = args;
+        if(args == "--multi-sampling") {
+            multisample = true;
             continue;
         }
 
-        if(args == "--multi-sampling") {
-            multisample = true;
+        // assume this is the log file
+        if(args == "-" || args.size() >= 1 && args[0] != '-') {
+            conffile = args;
             continue;
         }
 
@@ -268,6 +268,8 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
     record_frame_skip  = 1;
     record_frame_delta = 0.0;
 
+    message_timer = 0.0;
+
     srand(time(0));
 
     randomizeJuliaSeed();
@@ -300,20 +302,28 @@ MandelbulbViewer::~MandelbulbViewer() {
 }
 
 void MandelbulbViewer::createVideo(std::string filename, int video_framerate) {
+    if(campath.size()==0) {
+        mandelbulb_quit("nothing to record");
+    }
+
     int fixed_framerate = video_framerate;
 
     frame_count = 0;
     frame_skip  = 0;
 
     //calculate appropriate tick rate for video frame rate
+    /*
     while(fixed_framerate<60) {
         fixed_framerate += video_framerate;
         this->frame_skip++;
     }
+    */
 
     this->fixed_tick_rate = 1.0f / ((float) fixed_framerate);
 
     this->frameExporter = new PPMExporter(filename);
+
+    SDL_ShowCursor(false);
 }
 
 void MandelbulbViewer::randomizeJuliaSeed() {
@@ -431,6 +441,12 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
 }
 
+void MandelbulbViewer::setMessage(const std::string& message, const vec3f& colour) {
+    this->message = message;
+    message_colour = colour;
+    message_timer = 10.0;
+}
+
 void MandelbulbViewer::setDefaults() {
 
     fov = 45.0f;
@@ -475,8 +491,22 @@ void MandelbulbViewer::setDefaults() {
 
 void MandelbulbViewer::saveConfig(bool saverec) {
 
+    conf.clear();
+
     if(saverec) {
-        conf.setFilename("recording.conf");
+        //get next free recording name
+        char recname[256];
+        struct stat finfo;
+        int recno = 1;
+
+        while(1) {
+            snprintf(recname, 256, "%06d.mdb", recno);
+            if(stat(recname, &finfo) != 0) break;
+
+            recno++;
+        }
+
+        conf.setFilename(recname);
     } else {
         conf.setFilename("mandelbulb.conf");
     }
@@ -527,6 +557,8 @@ void MandelbulbViewer::saveConfig(bool saverec) {
     }
 
     conf.save();
+
+    setMessage("Wrote " + conf.getFilename());
 }
 
 bool MandelbulbViewer::readConfig() {
@@ -740,7 +772,7 @@ void MandelbulbViewer::drawAlignedQuad() {
 }
 
 void MandelbulbViewer::update(float t, float dt) {
-//    dt = std::max(dt, 1.0f/60.0f);
+    //dt = std::max(dt, 1.0f/25.0f);
 
     //if exporting a video use a fixed tick rate rather than time based
     if(frameExporter != 0) dt = fixed_tick_rate;
@@ -764,7 +796,13 @@ void MandelbulbViewer::update(float t, float dt) {
 void MandelbulbViewer::logic(float t, float dt) {
     if(play) {
         campath.logic(dt, &view);
-        if(campath.isFinished()) play = false;
+        if(campath.isFinished()) {
+            play = false;
+            if(frameExporter!=0) {
+                appFinished=true;
+                return;
+            }
+        }
     } else {
         moveCam(dt);
     }
@@ -775,6 +813,7 @@ void MandelbulbViewer::logic(float t, float dt) {
 
     if(record) {
         record_frame_delta += dt;
+
         if(frame_count % record_frame_skip == 0) {
             addWaypoint(record_frame_delta);
             record_frame_delta = 0.0;
@@ -786,9 +825,29 @@ void MandelbulbViewer::logic(float t, float dt) {
 
     viewRotation = view.getRotationMatrix();
     frame_count++;
+
+    if(record) {
+        vec3f red(1.0, 0.0, 0.0);
+
+        char msgbuff[256];
+        snprintf(msgbuff, 256, "Recording %d", campath.size());
+        setMessage(std::string(msgbuff), red);
+    }
+
+    if(play) {
+        vec3f green(0.0, 1.0, 0.0);
+
+        char msgbuff[256];
+        snprintf(msgbuff, 256, "Playing %d / %d", campath.getIndex(), campath.size());
+        setMessage(std::string(msgbuff), green);
+    }
+
+    if(message_timer>0.0) message_timer -= dt;
 }
 
 void MandelbulbViewer::draw(float t, float dt) {
+    if(appFinished) return;
+
     display.clear();
 
     if(!paused) {
@@ -870,26 +929,21 @@ void MandelbulbViewer::draw(float t, float dt) {
     glEnable(GL_BLEND);
     glEnable(GL_TEXTURE_2D);
 
-    if(record) {
-        glColor4f(1.0, 0.0, 0.0, 1.0);
-        font.print(0, 0, "Recording %d", campath.size());
-    }
-
-    if(play) {
-        glColor4f(0.0, 1.0, 0.0, 1.0);
-        font.print(0, 0, "Playing %d / %d", campath.getIndex(), campath.size());
+    if(message_timer>0.0 && frameExporter==0) {
+        glColor4f(message_colour.x, message_colour.y, message_colour.z, message_timer/10.0f);
+        font.draw(0, 2, message);
     }
 
     glColor4f(1.0, 1.0, 1.0, 1.0);
 
     if(debug) {
-        font.print(0, 0, "fps: %.2f", fps);
-        font.print(0, 20, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, speed);
-        font.print(0, 40, "power: %.2f", power);
-        font.print(0, 60, "maxIterations: %d", maxIterations);
-        font.print(0, 80, "epsilonScale: %.5f", epsilonScale);
-        font.print(0, 100,"lod: %.5f", lod);
-        font.print(0, 120,"dt: %.5f", dt);
+        font.print(0, 20, "fps: %.2f", fps);
+        font.print(0, 40, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, speed);
+        font.print(0, 60, "power: %.2f", power);
+        font.print(0, 80, "maxIterations: %d", maxIterations);
+        font.print(0, 100, "epsilonScale: %.5f", epsilonScale);
+        font.print(0, 120,"lod: %.5f", lod);
+        font.print(0, 140,"dt: %.5f", dt);
 
         if(juliaset) {
             font.print(0, 140, "julia_c: %.2f,%.2f,%.2f", _julia_c.x, _julia_c.y, _julia_c.z);

@@ -47,6 +47,10 @@ class MandelbulbViewer : public SDLApp {
 
     std::string shaderfile;
 
+    std::string message;
+    float message_timer;
+    vec3f message_colour;
+
     void drawAlignedQuad();
 
     float time_elapsed;
@@ -130,6 +134,7 @@ class MandelbulbViewer : public SDLApp {
 
     void moveCam(float dt);
 
+    void setMessage(const std::string& message, const vec3f& colour = vec3f(1.0, 1.0, 1.0));
     void setDefaults();
 public:
     MandelbulbViewer(std::string conffile);

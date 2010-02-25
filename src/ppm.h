@@ -22,19 +22,46 @@
 #include <fstream>
 #include <ostream>
 
+#include "SDL_thread.h"
+
 #include "core/display.h"
+
+enum { FRAME_EXPORTER_WAIT,
+       FRAME_EXPORTER_DUMP,
+       FRAME_EXPORTER_EXIT };
 
 class FrameExporter {
 protected:
-    SDL_Surface *surface;
-    char *surfacepixels, *pixels;
+
+    char* pixels1;
+    char* pixels2;
+    char* pixels_shared_ptr;
 
     size_t rowstride;
+
+    GLuint screentex;
+
+    SDL_Thread* thread;
+    SDL_mutex* mutex;
+    SDL_cond* cond;
+    int dumper_thread_state;
+
 public:
     FrameExporter();
     virtual ~FrameExporter();
     void dump();
+    void dumpThr();
     virtual void dumpImpl() {};
+};
+
+class PPMExporterException : public std::exception {
+protected:
+    std::string filename;
+public:
+    PPMExporterException(std::string& filename) : filename(filename) {}
+    virtual ~PPMExporterException() throw () {};
+
+    virtual const char* what() const throw() { return filename.c_str(); }
 };
 
 class PPMExporter : public FrameExporter {
@@ -42,12 +69,12 @@ protected:
     std::ostream* output;
     std::string filename;
     char ppmheader[1024];
+
 public:
-	PPMExporter(std::string outputfile);
-	virtual ~PPMExporter();
-	virtual void dumpImpl();
+    PPMExporter(std::string outputfile);
+    virtual ~PPMExporter();
+    virtual void dumpImpl();
 };
 
 
 #endif
-

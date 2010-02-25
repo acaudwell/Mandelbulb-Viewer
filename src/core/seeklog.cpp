@@ -27,6 +27,17 @@
 
 #include "seeklog.h"
 
+long gSeekLogMaxBufferSize = 104857600;
+
+//BaseLog
+
+void BaseLog::consume() {
+
+    while(stream->get() && !stream->fail());
+
+    stream->clear();
+}
+
 //StreamLog
 
 StreamLog::StreamLog() {
@@ -44,13 +55,17 @@ StreamLog::StreamLog() {
 #endif
 }
 
+StreamLog::~StreamLog() {
+}
+
 StreamLog::StreamLog(std::istream* stream) {
     this->stream = stream;
 }
 
 bool StreamLog::getNextLine(std::string& line) {
 
-    if(isFinished()) return false;
+    //try and fix the stream
+    if(isFinished()) stream->clear();
 
     char buff[1024];
 
@@ -72,6 +87,7 @@ bool StreamLog::getNextLine(std::string& line) {
 bool StreamLog::isFinished() {
 
     if(fcntl_fail || stream->fail() || stream->eof()) {
+//        debugLog("stream is finished. fcntl_fail = %d, stream fail = %d, eof = %d, bad = %d\n", fcntl_fail, stream->fail(), stream->eof(), stream->bad() );
         return true;
     }
 
@@ -83,44 +99,52 @@ bool StreamLog::isFinished() {
 SeekLog::SeekLog(std::string logfile) {
     this->logfile = logfile;
 
-    this->buffstream = 0;
+    this->stream = 0;
 
     if(!readFully()) {
-        printf("failed to read %s\r\n", logfile.c_str());
-        exit(1);
+        throw SeekLogException(logfile);
     }
 }
 
 bool SeekLog::readFully() {
 
-    if(buffstream!=0) delete buffstream;
+    if(stream!=0) delete stream;
 
-    std::ifstream file(logfile.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
-    file_size = file.tellg();
+    std::ifstream* file = new std::ifstream(logfile.c_str(), std::ios::in | std::ios::binary | std::ios::ate);
+    file_size = file->tellg();
 
-    debugLog("file_size = %d\n", file_size);
+    if(!file->is_open()) return false;
 
-    if(!file.is_open()) return false;
+    file->seekg (0, std::ios::beg);
 
-    //buffer entire file into memory
-    char* filebuffer = new char[file_size];
-
-    file.seekg (0, std::ios::beg);
-
-    if(!file.read (filebuffer, file_size)) {
-        file.close();
-        return false;
+    //dont load into memory if larger than
+    if(file_size > gSeekLogMaxBufferSize) {
+        stream = file;
+        return true;
     }
 
-    file.close();
+    //buffer entire file into memory
+    char* filebuffer = new char[file_size+1];
 
-    buffstream = new std::istringstream(std::string(filebuffer));
+    if(!file->read(filebuffer, file_size)) {
+        file->close();
+        delete file;
+        return false;
+    }
+    filebuffer[file_size] = '\0';
+
+    file->close();
+    delete file;
+
+    stream = new std::istringstream(std::string(filebuffer));
+
+    delete[] filebuffer;
 
     return true;
 }
 
 SeekLog::~SeekLog() {
-    if(buffstream!=0) delete buffstream;
+    if(stream!=0) delete stream;
 }
 
 float SeekLog::getPercent() {
@@ -128,16 +152,16 @@ float SeekLog::getPercent() {
 }
 
 void SeekLog::setPointer(long pointer) {
-    buffstream->seekg(pointer);
+    stream->seekg(pointer);
 }
 
 long SeekLog::getPointer() {
-    return buffstream->tellg();
+    return stream->tellg();
 }
 
 void SeekLog::seekTo(float percent) {
 
-    if(isFinished()) buffstream->clear();
+    if(isFinished()) stream->clear();
 
     long mem_pointer = (long) (percent * file_size);
 
@@ -153,33 +177,48 @@ void SeekLog::seekTo(float percent) {
 bool SeekLog::getNextLine(std::string& line) {
 
     //try and fix the stream
-    if(isFinished()) buffstream->clear();
+    if(isFinished()) stream->clear();
 
     char buff[1024];
 
-    buffstream->getline(buff, 1024);
+    stream->getline(buff, 1024);
     line = std::string(buff);
 
-    if(buffstream->fail()) {
+    if(stream->fail()) {
         //clear the failbit if only failed because the line was too long
-        if(!buffstream->bad() && buffstream->gcount() >= (1024-1)) {
-            buffstream->clear();
+        if(!stream->bad() && stream->gcount() >= (1024-1)) {
+            stream->clear();
         }
 
         return false;
     }
 
-    current_percent = (float) buffstream->tellg() / file_size;
+    current_percent = (float) stream->tellg() / file_size;
     //debugLog("current_percent = %.2f\n", current_percent);
 
     return true;
 }
 
+// temporarily move the file pointer to get a line somewhere else in the file
+bool SeekLog::getNextLineAt(std::string& line, float percent) {
+
+    long currpointer = getPointer();
+
+    seekTo(percent);
+
+    bool success = getNextLine(line);
+
+    //set the pointer back
+    setPointer(currpointer);
+
+    return success;
+}
+
 bool SeekLog::isFinished() {
     bool finished = false;
 
-    if(buffstream->fail() || buffstream->eof()) {
-        debugLog("buffstream is finished\n");
+    if(stream->fail() || stream->eof()) {
+        debugLog("stream is finished\n");
         finished=true;
     }
 

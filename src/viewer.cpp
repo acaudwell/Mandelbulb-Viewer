@@ -17,101 +17,16 @@
 
 #include "viewer.h"
 
-
-#ifdef _WIN32
-HWND consoleWindow = 0;
-
-void createWindowsConsole() {
-    if(consoleWindow !=0) return;
-
-    //create a console on Windows so users can see messages
-
-    //find an available name for our window
-    int console_suffix = 0;
-    char consoleTitle[512];
-    sprintf(consoleTitle, "%s", "Mandelbulb Console");
-
-    while(FindWindow(0, consoleTitle)) {
-        sprintf(consoleTitle, "Mandelbulb Console %d", ++console_suffix);
-    }
-
-    AllocConsole();
-    SetConsoleTitle(consoleTitle);
-
-    //redirect streams to console
-    freopen("conin$", "r", stdin);
-    freopen("conout$","w", stdout);
-    freopen("conout$","w", stderr);
-
-    consoleWindow = 0;
-
-    //wait for our console window
-    while(consoleWindow==0) {
-        consoleWindow = FindWindow(0, consoleTitle);
-        SDL_Delay(100);
-    }
-
-    //disable the close button so the user cant crash gource
-    HMENU hm = GetSystemMenu(consoleWindow, false);
-    DeleteMenu(hm, SC_CLOSE, MF_BYCOMMAND);
-}
-#endif
-
-//info message
-void mandelbulb_info(std::string msg) {
-#ifdef _WIN32
-    createWindowsConsole();
-#endif
-
-    printf("%s\n", msg.c_str());
-
-#ifdef _WIN32
-    printf("\nPress Enter\n");
-    getchar();
-#endif
-
-    exit(0);
-}
-
-//display error only
-void mandelbulb_quit(std::string error) {
-    SDL_Quit();
-
-#ifdef _WIN32
-    createWindowsConsole();
-#endif
-
-    printf("Error: %s\n\n", error.c_str());
-
-#ifdef _WIN32
-    printf("Press Enter\n");
-    getchar();
-#endif
-
-    exit(1);
-}
-
 //display help message + error (optional)
-void mandelbulb_help(std::string error) {
+void mandelbulb_help() {
 
 #ifdef _WIN32
-    createWindowsConsole();
+    SDLAppCreateWindowsConsole();
 
-    //resize window to fit help message
-    if(consoleWindow !=0) {
-        RECT windowRect;
-        if(GetWindowRect(consoleWindow, &windowRect)) {
-            float width = windowRect.right - windowRect.left;
-            MoveWindow(consoleWindow,windowRect.left,windowRect.top,width,400,true);
-        }
-    }
+    SDLAppResizeWindowsConsole(400);
 #endif
 
     printf("Mandelbulb Viewer v%s\n", MANDELBULB_VIEWER_VERSION);
-
-    if(error.size()) {
-        printf("Error: %s\n\n", error.c_str());
-    }
 
     printf("Usage: mandelbulb [OPTIONS] [FILE]\n");
     printf("\nOptions:\n");
@@ -131,12 +46,7 @@ void mandelbulb_help(std::string error) {
     getchar();
 #endif
 
-    //check if we should use an error code
-    if(error.size()) {
-        exit(1);
-    } else {
-        exit(0);
-    }
+    exit(0);
 }
 
 int main(int argc, char *argv[]) {
@@ -153,26 +63,28 @@ int main(int argc, char *argv[]) {
 
     std::vector<std::string> arguments;
 
+    SDLAppInit("Mandelbulb", "mandelbulb");
+
     SDLAppParseArgs(argc, argv, &width, &height, &fullscreen, &arguments);
 
     for(int i=0;i<arguments.size();i++) {
         std::string args = arguments[i];
 
         if(args == "-h" || args == "-?" || args == "--help") {
-            mandelbulb_help("");
+            mandelbulb_help();
         }
 
         if(args == "--output-ppm-stream") {
 
             if((i+1)>=arguments.size()) {
-                mandelbulb_help("specify ppm output file or '-' for stdout");
+                SDLAppQuit("specify ppm output file or '-' for stdout");
             }
 
             ppm_file_name = arguments[++i];
 
 #ifdef _WIN32
             if(ppm_file_name == "-") {
-                mandelbulb_help("stdout PPM mode not supported on Windows");
+                SDLAppQuit("stdout PPM mode not supported on Windows");
             }
 #endif
             continue;
@@ -181,7 +93,7 @@ int main(int argc, char *argv[]) {
         if(args == "--output-framerate") {
 
             if((i+1)>=arguments.size()) {
-                mandelbulb_help("specify framerate (25,30,60)");
+                SDLAppQuit("specify framerate (25,30,60)");
             }
 
             video_framerate = atoi(arguments[++i].c_str());
@@ -189,7 +101,7 @@ int main(int argc, char *argv[]) {
             if(   video_framerate != 25
                && video_framerate != 30
                && video_framerate != 60) {
-                mandelbulb_help("supported framerates are 25,30,60");
+                SDLAppQuit("supported framerates are 25,30,60");
             }
 
             continue;
@@ -209,7 +121,7 @@ int main(int argc, char *argv[]) {
         // unknown argument
         std::string arg_error = std::string("unknown option ") + std::string(args);
 
-        mandelbulb_help(arg_error);
+        SDLAppQuit(arg_error);
 
     }
 
@@ -225,15 +137,40 @@ int main(int argc, char *argv[]) {
 
     if(multisample) glEnable(GL_MULTISAMPLE_ARB);
 
-    MandelbulbViewer* viewer = new MandelbulbViewer(conffile);
+    MandelbulbViewer* viewer = 0;
 
-    if(ppm_file_name.size()) {
-        viewer->createVideo(ppm_file_name, video_framerate);
+    try {
+        viewer = new MandelbulbViewer(conffile);
+
+        if(ppm_file_name.size()) {
+            viewer->createVideo(ppm_file_name, video_framerate);
+        }
+
+        viewer->run();
+
+    } catch(ResourceException& exception) {
+
+        char errormsg[1024];
+        snprintf(errormsg, 1024, "failed to load resource '%s'", exception.what());
+
+        SDLAppQuit(errormsg);
+
+    } catch(SDLAppException& exception) {
+
+        if(exception.showHelp()) {
+            mandelbulb_help();
+        } else {
+            SDLAppQuit(exception.what());
+        }
+    } catch(PPMExporterException& exception) {
+
+        char errormsg[1024];
+        snprintf(errormsg, 1024, "could not write to '%s'", exception.what());
+
+        SDLAppQuit(errormsg);
     }
 
-    viewer->run();
-
-    delete viewer;
+    if(viewer != 0) delete viewer;
 
     display.quit();
 

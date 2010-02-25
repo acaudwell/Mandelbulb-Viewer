@@ -24,6 +24,7 @@
 
 #include "SDL_thread.h"
 
+#include "core/sdlapp.h"
 #include "core/display.h"
 
 enum { FRAME_EXPORTER_WAIT,
@@ -35,6 +36,8 @@ protected:
 
     char* pixels1;
     char* pixels2;
+    char* pixels_out;
+
     char* pixels_shared_ptr;
 
     size_t rowstride;

@@ -34,6 +34,7 @@ void mandelbulb_help() {
     printf("  -WIDTHxHEIGHT                    Set window size\n");
     printf("  -f                               Fullscreen\n\n");
 
+    printf("  --timescale SCALE        Set the timescale (default: 1.0)\n\n");
     printf("  --multi-sampling         Enable multi-sampling\n\n");
 
     printf("  --output-ppm-stream FILE Write frames as PPM to a file ('-' for STDOUT)\n");
@@ -55,6 +56,8 @@ int main(int argc, char *argv[]) {
     int height = 768;
     bool fullscreen=false;
     bool multisample=false;
+
+    float timescale = 1.0f;
 
     std::string conffile = "mandelbulb.conf";
 
@@ -107,6 +110,21 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        if(args == "--timescale") {
+
+            if((i+1)>=arguments.size()) {
+                SDLAppQuit("specify timescale");
+            }
+
+            timescale = atof(arguments[++i].c_str());
+
+            if(timescale<=0.0f) {
+                SDLAppQuit("timescale invalid");
+            }
+
+            continue;
+        }
+
         if(args == "--multi-sampling") {
             multisample = true;
             continue;
@@ -145,6 +163,8 @@ int main(int argc, char *argv[]) {
         if(ppm_file_name.size()) {
             viewer->createVideo(ppm_file_name, video_framerate);
         }
+
+        viewer->setTimescale(timescale);
 
         viewer->run();
 
@@ -195,6 +215,7 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
     mouselook = false;
     roll      = false;
 
+    timescale = 1.0;
 
     runtime = 0.0;
     frame_skip = 0;
@@ -238,9 +259,13 @@ MandelbulbViewer::~MandelbulbViewer() {
     if(frameExporter != 0) delete frameExporter;
 }
 
+void MandelbulbViewer::setTimescale(float timescale) {
+    this->timescale = timescale;
+}
+
 void MandelbulbViewer::createVideo(std::string filename, int video_framerate) {
     if(campath.size()==0) {
-        mandelbulb_quit("nothing to record");
+        SDLAppQuit("nothing to record");
     }
 
     int fixed_framerate = video_framerate;
@@ -713,6 +738,8 @@ void MandelbulbViewer::update(float t, float dt) {
 
     //if exporting a video use a fixed tick rate rather than time based
     if(frameExporter != 0) dt = fixed_tick_rate;
+
+    dt *= timescale;
 
     runtime += dt;
 

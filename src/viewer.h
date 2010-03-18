@@ -60,6 +60,7 @@ class MandelbulbViewer : public SDLApp {
     FrameExporter* frameExporter;
 
     float runtime;
+    float timescale;
     float fixed_tick_rate;
 
     int frame_skip;
@@ -141,6 +142,7 @@ public:
     void logic(float t, float dt);
     void draw(float t, float dt);
 
+    void setTimescale(float timescale);
     void createVideo(std::string filename, int video_framerate);
 
     bool readConfig();

@@ -48,7 +48,9 @@ uniform int  antialiasing;
 uniform bool  phong;
 uniform bool  julia;
 uniform bool  radiolaria;
+
 uniform float shadows;
+uniform float fog_distance;
 uniform float radiolariaFactor;
 uniform float ambientOcclusion;
 uniform float ambientOcclusionEmphasis;
@@ -320,6 +322,9 @@ vec4 renderPixel(vec2 pixel)
         // Found intersection?
         if (dist < eps) {
 
+            float bulb_depth = min(length(ray),1.0)/1.0;
+            bulb_depth *= bulb_depth;
+
             if (phong) {
                 vec3 normal = estimate_normal(ray, eps/2.0);
                 float specular = 0.0;
@@ -363,12 +368,23 @@ vec4 renderPixel(vec2 pixel)
                 pixel_color.rgb = diffuseColor.rgb;
             }
 
+            //colour distance from centre
+            pixel_color.rgb = pixel_color.rgb * bulb_depth + diffuseColor.xyz * (1.0-bulb_depth);
+
             ao *= 1.0 - (float(i) / float(max_steps)) * ambientOcclusionEmphasis * 2.0;
+
             pixel_color.rgb *= ao;
+
+            if(fog_distance>0.0) {
+                float fog_alpha = min(ray_length,fog_distance)/fog_distance;
+                pixel_color.rgb = backgroundColor.xyz * fog_alpha + pixel_color.rgb * (1.0 - fog_alpha);
+            }
+
             pixel_color.a = 1.0;
+
         } else {
             if(backgroundGradient) {
-                pixel_color.rgb *= backgroundColor.rgb * (1.0-(float(i) / float(max_steps)));
+                pixel_color.rgb = backgroundColor.rgb * (1.0-(float(i) / float(max_steps)));
                 pixel_color.a = backgroundColor.a;
             }
         }

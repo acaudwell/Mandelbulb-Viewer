@@ -95,6 +95,7 @@ class MandelbulbViewer : public SDLApp {
     bool phong;
 
     float shadows;
+    float fog_distance;
 
     float specularity;
     float specularExponent;

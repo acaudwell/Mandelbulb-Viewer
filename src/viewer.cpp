@@ -383,6 +383,14 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             maxIterations++;
         }
 
+        if (e->keysym.sym ==  SDLK_F3) {
+            fog_distance -= 0.25;
+        }
+
+        if (e->keysym.sym ==  SDLK_F4) {
+            fog_distance += 0.25;
+        }
+
         if (e->keysym.sym ==  SDLK_MINUS) {
 //            if(power>1.0) power -= 1.0;
             power -= 1.0;
@@ -419,11 +427,12 @@ void MandelbulbViewer::setDefaults() {
     bounding = 3.0f;
     bailout = 4.0f;
 
-    stepLimit = 110;
+    stepLimit = 600;
     maxIterations = 6;
     epsilonScale = 1.0;
     lod = 1.0;
 
+    fog_distance = 2.0f;
     phong = true;
     antialiasing = 0;
     shadows = 0.0;
@@ -488,6 +497,7 @@ void MandelbulbViewer::saveConfig(bool saverec) {
     section->setEntry(new ConfEntry("bailout", bailout));
 
     section->setEntry(new ConfEntry("antialiasing", antialiasing));
+    section->setEntry(new ConfEntry("fog_distance", fog_distance));
     section->setEntry(new ConfEntry("phong", phong));
     section->setEntry(new ConfEntry("shadows", shadows));
     section->setEntry(new ConfEntry("ambientOcclusion", ambientOcclusion));
@@ -545,6 +555,7 @@ bool MandelbulbViewer::readConfig() {
 
     antialiasing     = settings->getInt("antialiasing");
     phong            = settings->getBool("phong");
+    fog_distance     = settings->getFloat("fog_distance");
     shadows          = settings->getFloat("shadows");
     ambientOcclusion = settings->getFloat("ambientOcclusion");
     ambientOcclusionEmphasis = settings->getFloat("ambientOcclusionEmphasis");
@@ -859,6 +870,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setInteger("antialiasing", antialiasing);
     shader->setInteger("phong", phong);
     shader->setFloat("shadows", shadows);
+    shader->setFloat("fog_distance", fog_distance);
     shader->setFloat("ambientOcclusion", ambientOcclusion);
     shader->setFloat("ambientOcclusionEmphasis", ambientOcclusionEmphasis);
     shader->setFloat("colorSpread",      colorSpread);

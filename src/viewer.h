@@ -95,7 +95,6 @@ class MandelbulbViewer : public SDLApp {
     bool phong;
 
     float shadows;
-    float fog_distance;
 
     float specularity;
     float specularExponent;
@@ -106,10 +105,16 @@ class MandelbulbViewer : public SDLApp {
     float power;
     float bounding;
     float bailout;
-    float lod;
     float epsilonScale;
     int maxIterations;
     int stepLimit;
+
+    float fogDistance;
+    float aoSteps;
+
+    float glowDepth;
+    float glowMulti;
+    vec3f glowColour;
 
     bool radiolaria;
     float radiolariaFactor;

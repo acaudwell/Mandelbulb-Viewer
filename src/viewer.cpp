@@ -368,11 +368,11 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym ==  SDLK_COMMA) {
-            lod = std::max( lod / 1.1, 0.00001);
+            aoSteps /= 1.1f;
         }
 
         if (e->keysym.sym ==  SDLK_PERIOD) {
-            lod = std::min( lod * 1.1, 1.0);
+            aoSteps *= 1.1f;
         }
 
         if (e->keysym.sym ==  SDLK_F1) {
@@ -384,11 +384,11 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym ==  SDLK_F3) {
-            fog_distance -= 0.25;
+            fogDistance -= 0.25;
         }
 
         if (e->keysym.sym ==  SDLK_F4) {
-            fog_distance += 0.25;
+            fogDistance += 0.25;
         }
 
         if (e->keysym.sym ==  SDLK_MINUS) {
@@ -430,9 +430,9 @@ void MandelbulbViewer::setDefaults() {
     stepLimit = 600;
     maxIterations = 6;
     epsilonScale = 1.0;
-    lod = 1.0;
+    aoSteps = 100.0;
 
-    fog_distance = 2.0f;
+    fogDistance = 0.0f;
     phong = true;
     antialiasing = 0;
     shadows = 0.0;
@@ -457,6 +457,10 @@ void MandelbulbViewer::setDefaults() {
     diffuseColor    = vec4f(0.0, 0.85, 0.99, 1.0);
     ambientColor    = vec4f(0.67, 0.85, 1.0, 1.0);
     lightColor      = vec4f(0.48, 0.59, 0.66, 1.0);
+    glowColour      = vec3f(1.0, 1.0, 0.0);
+
+    glowMulti = 1.0;
+    glowDepth = 1.5;
 }
 
 
@@ -497,7 +501,6 @@ void MandelbulbViewer::saveConfig(bool saverec) {
     section->setEntry(new ConfEntry("bailout", bailout));
 
     section->setEntry(new ConfEntry("antialiasing", antialiasing));
-    section->setEntry(new ConfEntry("fog_distance", fog_distance));
     section->setEntry(new ConfEntry("phong", phong));
     section->setEntry(new ConfEntry("shadows", shadows));
     section->setEntry(new ConfEntry("ambientOcclusion", ambientOcclusion));
@@ -516,7 +519,12 @@ void MandelbulbViewer::saveConfig(bool saverec) {
     section->setEntry(new ConfEntry("maxIterations", maxIterations));
     section->setEntry(new ConfEntry("stepLimit", stepLimit));
     section->setEntry(new ConfEntry("epsilonScale", epsilonScale));
-    section->setEntry(new ConfEntry("lod", lod));
+    section->setEntry(new ConfEntry("aoSteps", aoSteps));
+
+    section->setEntry(new ConfEntry("fogDistance", fogDistance));
+    section->setEntry(new ConfEntry("glowDepth", glowDepth));
+    section->setEntry(new ConfEntry("glowMulti", glowMulti));
+    section->setEntry(new ConfEntry("glowColour", glowColour));
 
     section->setEntry(new ConfEntry("backgroundGradient", backgroundGradient));
     section->setEntry(new ConfEntry("fov", fov));
@@ -543,40 +551,102 @@ bool MandelbulbViewer::readConfig() {
 
     if(settings == 0) return true;
 
-    animated         = settings->getBool("animated");
-    juliaset         = settings->getBool("juliaset");
-    julia_c          = settings->getVec3("julia_c");
-    radiolaria       = settings->getBool("radiolaria");
-    radiolariaFactor = settings->getFloat("radiolariaFactor");
+    if(settings->hasValue("animated"))
+        animated = settings->getBool("animated");
 
-    power            = settings->getFloat("power");
-    bounding         = settings->getFloat("bounding");
-    bailout          = settings->getFloat("bailout");
+    if(settings->hasValue("juliaset"))
+        juliaset = settings->getBool("juliaset");
 
-    antialiasing     = settings->getInt("antialiasing");
-    phong            = settings->getBool("phong");
-    fog_distance     = settings->getFloat("fog_distance");
-    shadows          = settings->getFloat("shadows");
-    ambientOcclusion = settings->getFloat("ambientOcclusion");
-    ambientOcclusionEmphasis = settings->getFloat("ambientOcclusionEmphasis");
-    colorSpread      = settings->getFloat("colorSpread");
-    rimLight         = settings->getFloat("rimLight");
-    specularity      = settings->getFloat("specularity");
-    specularExponent = settings->getFloat("specularExponent");
-    light            = settings->getVec3("light");
-    backgroundColor  = settings->getVec4("backgroundColor");
-    diffuseColor     = settings->getVec4("diffuseColor");
-    ambientColor     = settings->getVec4("ambientColor");
-    lightColor       = settings->getVec4("lightColor");
+    if(settings->hasValue("julia_c"))
+        julia_c = settings->getVec3("julia_c");
 
-    maxIterations    = settings->getInt("maxIterations");
-    stepLimit        = settings->getInt("stepLimit");
-    epsilonScale     = settings->getFloat("epsilonScale");
+    if(settings->hasValue("radiolaria"))
+        radiolaria = settings->getBool("radiolaria");
 
-    lod              = settings->getFloat("lod");
-    backgroundGradient = settings->getBool("backgroundGradient");
+    if(settings->hasValue("radiolariaFactor"))
+        radiolariaFactor = settings->getFloat("radiolariaFactor");
 
-    fov              = settings->getFloat("fov");
+    if(settings->hasValue("power"))
+        power = settings->getFloat("power");
+
+    if(settings->hasValue("bounding"))
+        bounding = settings->getFloat("bounding");
+
+    if(settings->hasValue("bailout"))
+        bailout = settings->getFloat("bailout");
+
+    if(settings->hasValue("antialiasing"))
+        antialiasing = settings->getInt("antialiasing");
+
+    if(settings->hasValue("phong"))
+        phong = settings->getBool("phong");
+
+    if(settings->hasValue("fogDistance"))
+        fogDistance = settings->getFloat("fogDistance");
+
+    if(settings->hasValue("shadows"))
+        shadows = settings->getFloat("shadows");
+
+    if(settings->hasValue("ambientOcclusion"))
+        ambientOcclusion = settings->getFloat("ambientOcclusion");
+
+    if(settings->hasValue("ambientOcclusionEmphasis"))
+        ambientOcclusionEmphasis = settings->getFloat("ambientOcclusionEmphasis");
+
+    if(settings->hasValue("colorSpread"))
+        colorSpread = settings->getFloat("colorSpread");
+
+    if(settings->hasValue("rimLight"))
+        rimLight = settings->getFloat("rimLight");
+
+    if(settings->hasValue("specularity"))
+        specularity = settings->getFloat("specularity");
+
+    if(settings->hasValue("specularExponent"))
+        specularExponent = settings->getFloat("specularExponent");
+
+    if(settings->hasValue("light"))
+        light = settings->getVec3("light");
+
+    if(settings->hasValue("backgroundColor"))
+        backgroundColor = settings->getVec4("backgroundColor");
+
+    if(settings->hasValue("diffuseColor"))
+        diffuseColor = settings->getVec4("diffuseColor");
+
+    if(settings->hasValue("ambientColor"))
+        ambientColor = settings->getVec4("ambientColor");
+
+    if(settings->hasValue("lightColor"))
+        lightColor = settings->getVec4("lightColor");
+
+    if(settings->hasValue("maxIterations"))
+        maxIterations = settings->getInt("maxIterations");
+
+    if(settings->hasValue("stepLimit"))
+        stepLimit = settings->getInt("stepLimit");
+
+    if(settings->hasValue("epsilonScale"))
+        epsilonScale = settings->getFloat("epsilonScale");
+
+    if(settings->hasValue("backgroundGradient"))
+        backgroundGradient = settings->getBool("backgroundGradient");
+
+    if(settings->hasValue("fov"))
+        fov = settings->getFloat("fov");
+
+    if(settings->hasValue("aoSteps"))
+        aoSteps = settings->getFloat("aoSteps");
+
+    if(settings->hasValue("glowDepth"))
+        glowDepth = settings->getFloat("glowDepth");
+
+    if(settings->hasValue("glowMulti"))
+        glowMulti = settings->getFloat("glowMulti");
+
+    if(settings->hasValue("glowColour"))
+        glowColour = settings->getVec3("glowColour");
+
 
     return true;
 }
@@ -870,7 +940,6 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setInteger("antialiasing", antialiasing);
     shader->setInteger("phong", phong);
     shader->setFloat("shadows", shadows);
-    shader->setFloat("fog_distance", fog_distance);
     shader->setFloat("ambientOcclusion", ambientOcclusion);
     shader->setFloat("ambientOcclusionEmphasis", ambientOcclusionEmphasis);
     shader->setFloat("colorSpread",      colorSpread);
@@ -891,7 +960,14 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setInteger("maxIterations", maxIterations);
     shader->setInteger("stepLimit",     stepLimit);
     shader->setFloat("epsilonScale",    epsilonScale);
-    shader->setFloat("lod", lod);
+
+    shader->setFloat("aoSteps", aoSteps);
+    shader->setFloat("fogDistance", fogDistance);
+
+    shader->setFloat("glowDepth", glowDepth);
+    shader->setFloat("glowMulti", glowMulti);
+    shader->setVec3("glowColour", glowColour);
+
 
     shader->setInteger("backgroundGradient", backgroundGradient);
     shader->setFloat("fov",  fov);
@@ -918,7 +994,7 @@ void MandelbulbViewer::draw(float t, float dt) {
         font.print(0, 60, "power: %.2f", power);
         font.print(0, 80, "maxIterations: %d", maxIterations);
         font.print(0, 100, "epsilonScale: %.5f", epsilonScale);
-        font.print(0, 120,"lod: %.5f", lod);
+        font.print(0, 120,"aoSteps: %.5f", aoSteps);
         font.print(0, 140,"dt: %.5f", dt);
 
         if(juliaset) {

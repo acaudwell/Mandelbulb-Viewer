@@ -50,7 +50,6 @@ uniform bool  julia;
 uniform bool  radiolaria;
 
 uniform float shadows;
-uniform float fog_distance;
 uniform float radiolariaFactor;
 uniform float ambientOcclusion;
 uniform float ambientOcclusionEmphasis;
@@ -75,7 +74,12 @@ uniform float specularExponent;
 uniform int   maxIterations;
 uniform int   stepLimit;
 uniform float epsilonScale;
-uniform float lod;
+
+uniform float aoSteps;
+uniform float fogDistance;
+uniform float glowDepth;
+uniform float glowMulti;
+uniform vec3  glowColour;
 
 uniform mat3 viewRotation;
 uniform mat3 objRotation;
@@ -281,6 +285,8 @@ vec4 renderPixel(vec2 pixel)
 	vec3 ray_direction = rayDirection(pixel);
 	vec4 pixel_color = backgroundColor;
 
+    float aoScale = aoSteps / epsilonScale;
+
 	if(intersectBoundingSphere(eye, ray_direction, tmin, tmax)) {
 
         vec3 ray = eye + tmin * ray_direction;
@@ -304,8 +310,6 @@ vec4 renderPixel(vec2 pixel)
             ray += f * ray_direction;
             ray_length += f;
 
-            dist *= lod;
-
             // Are we within the intersection threshold or completely missed the fractal
             if (dist < eps || ray_length > tmax) {
                 break;
@@ -321,9 +325,6 @@ vec4 renderPixel(vec2 pixel)
 
         // Found intersection?
         if (dist < eps) {
-
-            float bulb_depth = min(length(ray),1.0)/1.0;
-            bulb_depth *= bulb_depth;
 
             if (phong) {
                 vec3 normal = estimate_normal(ray, eps/2.0);
@@ -368,26 +369,32 @@ vec4 renderPixel(vec2 pixel)
                 pixel_color.rgb = diffuseColor.rgb;
             }
 
-            //colour distance from centre
-            pixel_color.rgb = pixel_color.rgb * bulb_depth + diffuseColor.xyz * (1.0-bulb_depth);
-
-            ao *= 1.0 - (float(i) / float(max_steps)) * ambientOcclusionEmphasis * 2.0;
+            ao *= 1.0 - min(1.0, float(i) / aoScale) * ambientOcclusionEmphasis * 2.0;
 
             pixel_color.rgb *= ao;
-
-            if(fog_distance>0.0) {
-                float fog_alpha = min(ray_length,fog_distance)/fog_distance;
-                pixel_color.rgb = backgroundColor.xyz * fog_alpha + pixel_color.rgb * (1.0 - fog_alpha);
-            }
-
             pixel_color.a = 1.0;
 
         } else {
             if(backgroundGradient) {
-                pixel_color.rgb = backgroundColor.rgb * (1.0-(float(i) / float(max_steps)));
+                pixel_color.rgb = backgroundColor.rgb * (1.0-min(1.0, float(i) / aoScale));
                 pixel_color.a = backgroundColor.a;
             }
         }
+
+        if(fogDistance>0.0) {
+            float fog_alpha = min(ray_length*ray_length,fogDistance)/fogDistance;
+            pixel_color.rgb = backgroundColor.xyz * fog_alpha + pixel_color.rgb * (1.0 - fog_alpha);
+        }
+
+        if(glowDepth>0.0) {
+            float glow_alpha = min(min_dist,glowDepth)/glowDepth;
+            glow_alpha*=glow_alpha;
+
+            //colour distance from centre
+            pixel_color.rgb = pixel_color.rgb * glow_alpha + glowMulti * glowColour.xyz * (1.0-glow_alpha);
+        }
+
+
 	}
 
 	return pixel_color;

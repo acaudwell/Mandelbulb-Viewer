@@ -34,7 +34,9 @@ void mandelbulb_help() {
     printf("  -WIDTHxHEIGHT                    Set window size\n");
     printf("  -f                               Fullscreen\n\n");
 
-    printf("  --timescale SCALE        Set the timescale (default: 1.0)\n\n");
+    printf("  --viewscale SCALE        Set the view scale (default: 1.0)\n");
+    printf("  --timescale SCALE        Set the time scale (default: 1.0)\n\n");
+
     printf("  --multi-sampling         Enable multi-sampling\n\n");
 
     printf("  --output-ppm-stream FILE Write frames as PPM to a file ('-' for STDOUT)\n");
@@ -57,6 +59,7 @@ int main(int argc, char *argv[]) {
     bool fullscreen=false;
     bool multisample=false;
 
+    float viewscale = 1.0f;
     float timescale = 1.0f;
 
     std::string conffile = "mandelbulb.conf";
@@ -125,6 +128,22 @@ int main(int argc, char *argv[]) {
             continue;
         }
 
+        if(args == "--viewscale") {
+
+            if((i+1)>=arguments.size()) {
+                SDLAppQuit("specify viewscale (0.0 - 1.0)");
+            }
+
+            viewscale = atof(arguments[++i].c_str());
+
+            if(viewscale<=0.0f || viewscale > 1.0f) {
+                SDLAppQuit("viewscale invalid");
+            }
+
+            continue;
+        }
+
+
         if(args == "--multi-sampling") {
             multisample = true;
             continue;
@@ -158,13 +177,11 @@ int main(int argc, char *argv[]) {
     MandelbulbViewer* viewer = 0;
 
     try {
-        viewer = new MandelbulbViewer(conffile);
+        viewer = new MandelbulbViewer(conffile, viewscale, timescale);
 
         if(ppm_file_name.size()) {
             viewer->createVideo(ppm_file_name, video_framerate);
         }
-
-        viewer->setTimescale(timescale);
 
         viewer->run();
 
@@ -197,8 +214,10 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
+MandelbulbViewer::MandelbulbViewer(std::string conffile, float viewscale, float timescale) : SDLApp() {
     shaderfile = "MandelbulbQuick";
+
+    this->timescale = timescale;
 
     shader = 0;
     time_elapsed = 0;
@@ -252,15 +271,19 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
             conf.clear();
         }
     }
+
+    vwidth  = display.width;
+    vheight = display.height;
+
+    if(viewscale != 1.0f) {
+        vwidth  *= viewscale;
+        vheight *= viewscale;
+    }
 }
 
 MandelbulbViewer::~MandelbulbViewer() {
     if(shader != 0) delete shader;
     if(frameExporter != 0) delete frameExporter;
-}
-
-void MandelbulbViewer::setTimescale(float timescale) {
-    this->timescale = timescale;
 }
 
 void MandelbulbViewer::createVideo(std::string filename, int video_framerate) {
@@ -303,6 +326,8 @@ void MandelbulbViewer::init() {
     display.setClearColour(vec3f(0.0, 0.0, 0.0));
 
     shader = shadermanager.grab(shaderfile);
+
+    rendertex = display.emptyTexture(display.width, display.height, GL_RGBA);
 
     font = fontmanager.grab("FreeSans.ttf", 16);
     font.dropShadow(true);
@@ -777,12 +802,9 @@ void MandelbulbViewer::moveCam(float dt) {
     view.setPos(campos);
 }
 
-void MandelbulbViewer::drawAlignedQuad() {
+void MandelbulbViewer::drawAlignedQuad(int w, int h) {
 
     glPushMatrix();
-
-    int w = display.width;
-    int h = display.height;
 
     glBegin(GL_QUADS);
         glTexCoord2i(1,-1);
@@ -865,6 +887,21 @@ void MandelbulbViewer::logic(float t, float dt) {
         }
     }
 
+    //update julia seed
+    _julia_c = julia_c;
+
+    if(animated) {
+        _julia_c = julia_c + vec3f(sinf(time_elapsed), sinf(time_elapsed), atan(time_elapsed)) * 0.1;
+    }
+
+    //to avoid a visible sphere we need to set the bounding
+    //sphere to be greater than the camera's distance from the
+    //origin
+    if(backgroundGradient) {
+        bounding = std::max(bounding, view.getPos().length2());
+    }
+
+
 //    float amount = 90 * dt;
 //    mandelbulb.rotateY(dt * 90.0f * DEGREES_TO_RADIANS);
 
@@ -890,38 +927,24 @@ void MandelbulbViewer::logic(float t, float dt) {
     if(message_timer>0.0) message_timer -= dt;
 }
 
-void MandelbulbViewer::draw(float t, float dt) {
-    if(appFinished) return;
 
-    display.clear();
+void MandelbulbViewer::drawMandelbulb() {
 
-    if(!paused) {
-        time_elapsed += dt;
-    }
+    int vwidth = this->vwidth;
+    int vheight = this->vheight;
 
-    vec3f _julia_c = julia_c;
-
-    if(animated) {
-        _julia_c = julia_c + vec3f(sinf(time_elapsed), sinf(time_elapsed), atan(time_elapsed)) * 0.1;
+    if(mouselook) {
+        vwidth  *= 0.25;
+        vheight *= 0.25;
     }
 
     vec3f campos = view.getPos();
 
-    //to avoid a visible sphere we need to set the bounding
-    //sphere to be greater than the camera's distance from the
-    //origin
-    if(backgroundGradient) {
-        bounding = std::max(bounding, campos.length2());
-    }
-
-    glDisable(GL_BLEND);
-    glDisable(GL_TEXTURE_2D);
-
     display.mode2D();
 
     shader->use();
-    shader->setFloat("width",  display.width);
-    shader->setFloat("height", display.height);
+    shader->setFloat("width",  vwidth);
+    shader->setFloat("height", vheight);
 
     shader->setVec3("camera",         campos);
     shader->setVec3("cameraFine",     vec3f(0.0f, 0.0f, 0.0f));
@@ -972,9 +995,50 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setInteger("backgroundGradient", backgroundGradient);
     shader->setFloat("fov",  fov);
 
-    drawAlignedQuad();
+    drawAlignedQuad(vwidth, vheight);
 
     glUseProgramObjectARB(0);
+
+    glEnable(GL_TEXTURE_2D);
+    glDisable(GL_BLEND);
+
+    if(display.width != vwidth && display.height != vheight) {
+
+        glBindTexture(GL_TEXTURE_2D, rendertex);
+        glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, display.height - vheight, vwidth, vheight, 0);
+
+        display.mode2D();
+
+        glBegin(GL_QUADS);
+            glTexCoord2i(1,0);
+            glVertex2i(display.width,display.height);
+
+            glTexCoord2i(0,0);
+            glVertex2i(0,display.height);
+
+            glTexCoord2i(0,1);
+            glVertex2i(0,0);
+
+            glTexCoord2i(1,1);
+            glVertex2i(display.width,0);
+        glEnd();
+    }
+}
+
+void MandelbulbViewer::draw(float t, float dt) {
+    if(appFinished) return;
+
+    display.clear();
+
+    if(!paused) {
+        time_elapsed += dt;
+    }
+
+    glDisable(GL_BLEND);
+    glDisable(GL_TEXTURE_2D);
+
+    drawMandelbulb();
+
 //    glActiveTextureARB(GL_TEXTURE0);
 
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -989,6 +1053,8 @@ void MandelbulbViewer::draw(float t, float dt) {
     glColor4f(1.0, 1.0, 1.0, 1.0);
 
     if(debug) {
+        vec3f campos = view.getPos();
+
         font.print(0, 20, "fps: %.2f", fps);
         font.print(0, 40, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, speed);
         font.print(0, 60, "power: %.2f", power);

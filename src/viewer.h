@@ -36,6 +36,9 @@ void mandelbulb_help();
 
 class MandelbulbViewer : public SDLApp {
 
+    int vwidth;
+    int vheight;
+
     Shader* shader;
     FXFont font;
 
@@ -49,7 +52,6 @@ class MandelbulbViewer : public SDLApp {
     float message_timer;
     vec3f message_colour;
 
-    void drawAlignedQuad();
 
     float time_elapsed;
 
@@ -86,6 +88,7 @@ class MandelbulbViewer : public SDLApp {
     bool backgroundGradient;
     bool juliaset;
     vec3f julia_c;
+    vec3f _julia_c;
 
     float speed;
     float fov;
@@ -141,14 +144,19 @@ class MandelbulbViewer : public SDLApp {
 
     void setMessage(const std::string& message, const vec3f& colour = vec3f(1.0, 1.0, 1.0));
     void setDefaults();
+
+    GLuint rendertex;
+
+    void drawAlignedQuad(int w, int h);
+
+    void drawMandelbulb();
 public:
-    MandelbulbViewer(std::string conffile);
+    MandelbulbViewer(std::string conffile, float viewscale, float timescale);
     ~MandelbulbViewer();
 
     void logic(float t, float dt);
     void draw(float t, float dt);
 
-    void setTimescale(float timescale);
     void createVideo(std::string filename, int video_framerate);
 
     bool readConfig();

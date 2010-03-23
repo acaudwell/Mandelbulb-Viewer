@@ -83,6 +83,8 @@ class MandelbulbViewer : public SDLApp {
     mat3f viewRotation;
     mat3f objRotation;
 
+    bool constantSpeed;
+
     bool backgroundGradient;
     bool juliaset;
     vec3f julia_c;
@@ -115,6 +117,12 @@ class MandelbulbViewer : public SDLApp {
     float glowDepth;
     float glowMulti;
     vec3f glowColour;
+
+    float beat;
+    float beatTimer;
+    float beatGlowDepth;
+    float beatGlowMulti;
+    int beatCount;
 
     bool radiolaria;
     float radiolariaFactor;

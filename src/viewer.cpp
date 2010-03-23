@@ -223,7 +223,7 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile) : SDLApp() {
     fixed_tick_rate = 0.0;
 
     frameExporter = 0;
-    record_frame_skip  = 1;
+    record_frame_skip  = 10.0;
     record_frame_delta = 0.0;
 
     message_timer = 0.0;
@@ -319,12 +319,16 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             appFinished=true;
         }
 
-        if (e->keysym.sym == SDLK_F5) {
+        if (e->keysym.sym == SDLK_F9) {
             readConfig();
         }
 
-        if (e->keysym.sym == SDLK_F6) {
+        if (e->keysym.sym == SDLK_F10) {
             saveConfig(false);
+        }
+
+        if (e->keysym.sym == SDLK_F11) {
+            beat = 0.22;
         }
 
         if (e->keysym.sym == SDLK_r) {
@@ -341,6 +345,10 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
         if (e->keysym.sym ==  SDLK_c) {
             randomizeColours();
+        }
+
+        if (e->keysym.sym ==  SDLK_v) {
+            constantSpeed = !constantSpeed;
         }
 
         if (e->keysym.sym ==  SDLK_b) {
@@ -391,6 +399,22 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             fogDistance += 0.25;
         }
 
+        if (e->keysym.sym ==  SDLK_F5) {
+            glowDepth -= 0.1;
+        }
+
+        if (e->keysym.sym ==  SDLK_F6) {
+            glowDepth += 0.1;
+        }
+
+        if (e->keysym.sym ==  SDLK_F7) {
+            glowMulti /= 1.1;
+        }
+
+        if (e->keysym.sym ==  SDLK_F8) {
+            glowMulti *= 1.1;
+        }
+
         if (e->keysym.sym ==  SDLK_MINUS) {
 //            if(power>1.0) power -= 1.0;
             power -= 1.0;
@@ -422,6 +446,8 @@ void MandelbulbViewer::setDefaults() {
     fov = 45.0f;
     cameraZoom = 0.0f;
     speed = 0.25;
+
+    constantSpeed = true;
 
     power = 8.0;
     bounding = 3.0f;
@@ -461,6 +487,12 @@ void MandelbulbViewer::setDefaults() {
 
     glowMulti = 1.0;
     glowDepth = 1.5;
+
+    beat = 0.0;
+    beatTimer = 0.0;
+    beatGlowDepth = 0.0;
+    beatGlowMulti = 0.0;
+    beatCount = 0;
 }
 
 
@@ -529,6 +561,7 @@ void MandelbulbViewer::saveConfig(bool saverec) {
     section->setEntry(new ConfEntry("backgroundGradient", backgroundGradient));
     section->setEntry(new ConfEntry("fov", fov));
     section->setEntry(new ConfEntry("speed", speed));
+    section->setEntry(new ConfEntry("constantSpeed", constantSpeed));
 
     conf.setSection(section);
 
@@ -647,6 +680,11 @@ bool MandelbulbViewer::readConfig() {
     if(settings->hasValue("glowColour"))
         glowColour = settings->getVec3("glowColour");
 
+    if(settings->hasValue("constantSpeed"))
+        constantSpeed = settings->getBool("constantSpeed");
+
+    if(settings->hasValue("beat"))
+        beat = settings->getFloat("beat");
 
     return true;
 }
@@ -745,7 +783,8 @@ void MandelbulbViewer::moveCam(float dt) {
     float cam_distance = campos.length2();
     cam_distance *= cam_distance;
 
-    float amount = speed * std::min(1.0f, cam_distance) * dt;
+    float amount = constantSpeed ?
+        speed * dt : speed * std::min(1.0f, cam_distance) * dt;
 
     Uint8* keyState = SDL_GetKeyState(NULL);
 
@@ -865,6 +904,26 @@ void MandelbulbViewer::logic(float t, float dt) {
         }
     }
 
+    //update beat
+    if(beat>0.0) {
+        beatTimer += dt;
+        if(beatTimer>beat*2.0) {
+            beatTimer=0.0;
+            beatCount++;
+
+            if(beatCount%4==0) {
+                glowColour = vec3f(rand() % 100, rand() % 100, rand() % 100).normal();
+            }
+        }
+
+        float beatpc = beatTimer/beat;
+        if(beatpc>1.0) beatpc = 2.0-beatpc;
+
+        beatGlowDepth = glowDepth * 0.5 + 0.5 * glowDepth * beatpc;
+        beatGlowMulti = glowMulti * 0.5 + 0.5 * glowMulti * beatpc;
+    }
+
+
 //    float amount = 90 * dt;
 //    mandelbulb.rotateY(dt * 90.0f * DEGREES_TO_RADIANS);
 
@@ -964,8 +1023,15 @@ void MandelbulbViewer::draw(float t, float dt) {
     shader->setFloat("aoSteps", aoSteps);
     shader->setFloat("fogDistance", fogDistance);
 
-    shader->setFloat("glowDepth", glowDepth);
-    shader->setFloat("glowMulti", glowMulti);
+
+    if(beat>0.0) {
+        shader->setFloat("glowDepth", beatGlowDepth);
+        shader->setFloat("glowMulti", beatGlowMulti);
+    } else {
+        shader->setFloat("glowDepth", glowDepth);
+        shader->setFloat("glowMulti", glowMulti);
+    }
+
     shader->setVec3("glowColour", glowColour);
 
 

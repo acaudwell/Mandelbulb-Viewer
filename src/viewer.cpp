@@ -353,7 +353,7 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym == SDLK_F11) {
-            beat = 0.22;
+            beat = 0.218;
         }
 
         if (e->keysym.sym == SDLK_r) {

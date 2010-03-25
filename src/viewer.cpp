@@ -17,41 +17,6 @@
 
 #include "viewer.h"
 
-//display help message + error (optional)
-void mandelbulb_help() {
-
-#ifdef _WIN32
-    SDLAppCreateWindowsConsole();
-
-    SDLAppResizeWindowsConsole(400);
-#endif
-
-    printf("Mandelbulb Viewer v%s\n", MANDELBULB_VIEWER_VERSION);
-
-    printf("Usage: mandelbulb [OPTIONS] [FILE]\n");
-    printf("\nOptions:\n");
-    printf("  -h, --help                       Help\n\n");
-    printf("  -WIDTHxHEIGHT                    Set window size\n");
-    printf("  -f                               Fullscreen\n\n");
-
-    printf("  --viewscale SCALE        Set the view scale (default: 1.0)\n");
-    printf("  --timescale SCALE        Set the time scale (default: 1.0)\n\n");
-
-    printf("  --multi-sampling         Enable multi-sampling\n\n");
-
-    printf("  --output-ppm-stream FILE Write frames as PPM to a file ('-' for STDOUT)\n");
-    printf("  --output-framerate FPS   Framerate of output (25,30,60)\n\n");
-
-    printf("FILE may be a Mandelbulb conf file or a recording file.\n\n");
-
-#ifdef _WIN32
-    printf("Press Enter\n");
-    getchar();
-#endif
-
-    exit(0);
-}
-
 int main(int argc, char *argv[]) {
 
     int width  = 1024;
@@ -59,112 +24,35 @@ int main(int argc, char *argv[]) {
     bool fullscreen=false;
     bool multisample=false;
 
-    float viewscale = 1.0f;
-    float timescale = 1.0f;
-
     std::string conffile = "mandelbulb.conf";
 
     std::string ppm_file_name;
     int video_framerate = 60;
 
-    std::vector<std::string> arguments;
+    std::vector<std::string> conffiles;
 
     SDLAppInit("Mandelbulb", "mandelbulb");
 
-    SDLAppParseArgs(argc, argv, &width, &height, &fullscreen, &arguments);
+    ConfFile conf;
 
-    for(int i=0;i<arguments.size();i++) {
-        std::string args = arguments[i];
+    try {
+        conf.load(conffile);
+        gViewerSettings.parseArgs(argc, argv, conf, &conffiles);
 
-        if(args == "-h" || args == "-?" || args == "--help") {
-            mandelbulb_help();
+        if(conffiles.size()>0) {
+            conffile = conffiles[conffiles.size()-1];
+            conf.load(conffile);
         }
 
-        if(args == "--output-ppm-stream") {
+        gViewerSettings.importViewerSettings(conf);
 
-            if((i+1)>=arguments.size()) {
-                SDLAppQuit("specify ppm output file or '-' for stdout");
-            }
-
-            ppm_file_name = arguments[++i];
-
-#ifdef _WIN32
-            if(ppm_file_name == "-") {
-                SDLAppQuit("stdout PPM mode not supported on Windows");
-            }
-#endif
-            continue;
-        }
-
-        if(args == "--output-framerate") {
-
-            if((i+1)>=arguments.size()) {
-                SDLAppQuit("specify framerate (25,30,60)");
-            }
-
-            video_framerate = atoi(arguments[++i].c_str());
-
-            if(   video_framerate != 25
-               && video_framerate != 30
-               && video_framerate != 60) {
-                SDLAppQuit("supported framerates are 25,30,60");
-            }
-
-            continue;
-        }
-
-        if(args == "--timescale") {
-
-            if((i+1)>=arguments.size()) {
-                SDLAppQuit("specify timescale");
-            }
-
-            timescale = atof(arguments[++i].c_str());
-
-            if(timescale<=0.0f) {
-                SDLAppQuit("timescale invalid");
-            }
-
-            continue;
-        }
-
-        if(args == "--viewscale") {
-
-            if((i+1)>=arguments.size()) {
-                SDLAppQuit("specify viewscale (0.0 - 1.0)");
-            }
-
-            viewscale = atof(arguments[++i].c_str());
-
-            if(viewscale<=0.0f || viewscale > 1.0f) {
-                SDLAppQuit("viewscale invalid");
-            }
-
-            continue;
-        }
-
-
-        if(args == "--multi-sampling") {
-            multisample = true;
-            continue;
-        }
-
-        // assume this is the log file
-        if(args == "-" || args.size() >= 1 && args[0] != '-') {
-            conffile = args;
-            continue;
-        }
-
-        // unknown argument
-        std::string arg_error = std::string("unknown option ") + std::string(args);
-
-        SDLAppQuit(arg_error);
-
+    } catch(ConfFileException& exception) {
+        SDLAppQuit(exception.what());
     }
 
     display.enableShaders(true);
 
-    if(multisample) {
+    if(gViewerSettings.multisample) {
         display.multiSample(4);
     }
 
@@ -172,15 +60,15 @@ int main(int argc, char *argv[]) {
 
     display.init("Mandelbulb Viewer", width, height, fullscreen);
 
-    if(multisample) glEnable(GL_MULTISAMPLE_ARB);
+    if(gViewerSettings.multisample) glEnable(GL_MULTISAMPLE_ARB);
 
     MandelbulbViewer* viewer = 0;
 
     try {
-        viewer = new MandelbulbViewer(conffile, viewscale, timescale);
+        viewer = new MandelbulbViewer(conf);
 
-        if(ppm_file_name.size()) {
-            viewer->createVideo(ppm_file_name, video_framerate);
+        if(gViewerSettings.output_ppm_filename.size()) {
+            viewer->createVideo(gViewerSettings.output_ppm_filename, gViewerSettings.output_framerate);
         }
 
         viewer->run();
@@ -195,7 +83,7 @@ int main(int argc, char *argv[]) {
     } catch(SDLAppException& exception) {
 
         if(exception.showHelp()) {
-            mandelbulb_help();
+            gViewerSettings.help();
         } else {
             SDLAppQuit(exception.what());
         }
@@ -214,10 +102,8 @@ int main(int argc, char *argv[]) {
     return 0;
 }
 
-MandelbulbViewer::MandelbulbViewer(std::string conffile, float viewscale, float timescale) : SDLApp() {
+MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
     shaderfile = "MandelbulbQuick";
-
-    this->timescale = timescale;
 
     shader = 0;
     time_elapsed = 0;
@@ -228,13 +114,16 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile, float viewscale, float 
 
     view.setPos(vec3f(0.0, 0.0, 2.6));
 
+    beatCount     = 0;
+    beatTimer     = 0.0;
+    beatGlowDepth = 0.0;
+    beatGlowMulti = 0.0;
+
     play = false;
     record = false;
 
     mouselook = false;
     roll      = false;
-
-    timescale = 1.0;
 
     runtime = 0.0;
     frame_skip = 0;
@@ -251,33 +140,21 @@ MandelbulbViewer::MandelbulbViewer(std::string conffile, float viewscale, float 
 
     randomizeJuliaSeed();
 
-    setDefaults();
-
     //ignore mouse motion until we have finished setting up
     SDL_EventState(SDL_MOUSEMOTION, SDL_IGNORE);
 
-    if(conffile.size()) {
-
-        conf.setFilename(conffile);
-
-        if(readConfig()) {
-
-            //load recording
-            if(conf.hasSection("camera")) {
-                campath.load(conf);
-                play=true;
-            }
-        } else {
-            conf.clear();
-        }
+    //load recording
+    if(conf.hasSection("camera")) {
+        campath.load(conf);
+        play=true;
     }
 
     vwidth  = display.width;
     vheight = display.height;
 
-    if(viewscale != 1.0f) {
-        vwidth  *= viewscale;
-        vheight *= viewscale;
+    if(gViewerSettings.viewscale != 1.0f) {
+        vwidth  *= gViewerSettings.viewscale;
+        vheight *= gViewerSettings.viewscale;
     }
 }
 
@@ -312,14 +189,14 @@ void MandelbulbViewer::createVideo(std::string filename, int video_framerate) {
 }
 
 void MandelbulbViewer::randomizeJuliaSeed() {
-    julia_c = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ).normal();
+    gViewerSettings.julia_c = vec3f( rand() % 1000, rand() % 1000, rand() % 1000 ).normal();
 }
 
 void MandelbulbViewer::randomizeColours() {
-    backgroundColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
-    diffuseColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
-    ambientColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
-    lightColor   = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
+    gViewerSettings.backgroundColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
+    gViewerSettings.diffuseColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
+    gViewerSettings.ambientColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
+    gViewerSettings.lightColor   = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
 }
 
 void MandelbulbViewer::init() {
@@ -344,16 +221,8 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             appFinished=true;
         }
 
-        if (e->keysym.sym == SDLK_F9) {
-            readConfig();
-        }
-
-        if (e->keysym.sym == SDLK_F10) {
-            saveConfig(false);
-        }
-
         if (e->keysym.sym == SDLK_F11) {
-            beat = 0.218;
+            gViewerSettings.beat = 0.218;
         }
 
         if (e->keysym.sym == SDLK_r) {
@@ -373,15 +242,15 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym ==  SDLK_v) {
-            constantSpeed = !constantSpeed;
+            gViewerSettings.constantSpeed = !gViewerSettings.constantSpeed;
         }
 
         if (e->keysym.sym ==  SDLK_b) {
-            backgroundGradient = !backgroundGradient;
+            gViewerSettings.backgroundGradient = !gViewerSettings.backgroundGradient;
         }
 
         if (e->keysym.sym ==  SDLK_j) {
-            juliaset = !juliaset;
+            gViewerSettings.juliaset = !gViewerSettings.juliaset;
         }
 
         if (e->keysym.sym ==  SDLK_k) {
@@ -389,64 +258,64 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if(e->keysym.sym ==  SDLK_h) {
-            animated = !animated;
+            gViewerSettings.animated = !gViewerSettings.animated;
         }
 
         if (e->keysym.sym ==  SDLK_LEFTBRACKET) {
-            epsilonScale = std::max( epsilonScale / 1.1, 0.00001);
+            gViewerSettings.epsilonScale = std::max( gViewerSettings.epsilonScale / 1.1, 0.00001);
         }
 
         if (e->keysym.sym ==  SDLK_RIGHTBRACKET) {
-            epsilonScale = std::min( epsilonScale * 1.1, 2.0);
+            gViewerSettings.epsilonScale = std::min( gViewerSettings.epsilonScale * 1.1, 2.0);
         }
 
         if (e->keysym.sym ==  SDLK_COMMA) {
-            aoSteps /= 1.1f;
+            gViewerSettings.aoSteps /= 1.1f;
         }
 
         if (e->keysym.sym ==  SDLK_PERIOD) {
-            aoSteps *= 1.1f;
+            gViewerSettings.aoSteps *= 1.1f;
         }
 
         if (e->keysym.sym ==  SDLK_F1) {
-            if(maxIterations>1) maxIterations--;
+            if(gViewerSettings.maxIterations>1) gViewerSettings.maxIterations--;
         }
 
         if (e->keysym.sym ==  SDLK_F2) {
-            maxIterations++;
+            gViewerSettings.maxIterations++;
         }
 
         if (e->keysym.sym ==  SDLK_F3) {
-            fogDistance -= 0.25;
+            gViewerSettings.fogDistance -= 0.25;
         }
 
         if (e->keysym.sym ==  SDLK_F4) {
-            fogDistance += 0.25;
+            gViewerSettings.fogDistance += 0.25;
         }
 
         if (e->keysym.sym ==  SDLK_F5) {
-            glowDepth -= 0.1;
+            gViewerSettings.glowDepth -= 0.1;
         }
 
         if (e->keysym.sym ==  SDLK_F6) {
-            glowDepth += 0.1;
+            gViewerSettings.glowDepth += 0.1;
         }
 
         if (e->keysym.sym ==  SDLK_F7) {
-            glowMulti /= 1.1;
+            gViewerSettings.glowMulti /= 1.1;
         }
 
         if (e->keysym.sym ==  SDLK_F8) {
-            glowMulti *= 1.1;
+            gViewerSettings.glowMulti *= 1.1;
         }
 
         if (e->keysym.sym ==  SDLK_MINUS) {
 //            if(power>1.0) power -= 1.0;
-            power -= 1.0;
+            gViewerSettings.power -= 1.0;
         }
 
         if (e->keysym.sym ==  SDLK_EQUALS) {
-            power += 1.0;
+            gViewerSettings.power += 1.0;
         }
 
         if (e->keysym.sym == SDLK_q) {
@@ -466,255 +335,36 @@ void MandelbulbViewer::setMessage(const std::string& message, const vec3f& colou
     message_timer = 10.0;
 }
 
-void MandelbulbViewer::setDefaults() {
+void MandelbulbViewer::saveRecording() {
 
-    fov = 45.0f;
-    cameraZoom = 0.0f;
-    speed = 0.25;
+    ConfFile conf;
 
-    constantSpeed = true;
+    //get next free recording name
+    char recname[256];
+    struct stat finfo;
+    int recno = 1;
 
-    power = 8.0;
-    bounding = 3.0f;
-    bailout = 4.0f;
+    while(1) {
+        snprintf(recname, 256, "%06d.mdb", recno);
+        if(stat(recname, &finfo) != 0) break;
 
-    stepLimit = 600;
-    maxIterations = 6;
-    epsilonScale = 1.0;
-    aoSteps = 100.0;
-
-    fogDistance = 0.0f;
-    phong = true;
-    antialiasing = 0;
-    shadows = 0.0;
-    specularity = 0.7;
-    specularExponent = 15.0;
-    ambientOcclusion = 0.5f;
-    ambientOcclusionEmphasis = 0.58f;
-
-    radiolaria = false;
-    radiolariaFactor = 0.0f;
-
-    colorSpread = 0.2;
-    rimLight = 0.0;
-
-    animated = false;
-    juliaset = false;
-    backgroundGradient = true;
-
-    light = vec3f(38, -42, 38);
-
-    backgroundColor = vec4f(0.0, 0.0, 0.0, 1.0);
-    diffuseColor    = vec4f(0.0, 0.85, 0.99, 1.0);
-    ambientColor    = vec4f(0.67, 0.85, 1.0, 1.0);
-    lightColor      = vec4f(0.48, 0.59, 0.66, 1.0);
-    glowColour      = vec3f(1.0, 1.0, 0.0);
-
-    glowMulti = 1.0;
-    glowDepth = 1.5;
-
-    beat = 0.0;
-    beatTimer = 0.0;
-    beatGlowDepth = 0.0;
-    beatGlowMulti = 0.0;
-    beatCount = 0;
-    beatPeriod = 8;
-}
-
-
-void MandelbulbViewer::saveConfig(bool saverec) {
-
-    conf.clear();
-
-    if(saverec) {
-        //get next free recording name
-        char recname[256];
-        struct stat finfo;
-        int recno = 1;
-
-        while(1) {
-            snprintf(recname, 256, "%06d.mdb", recno);
-            if(stat(recname, &finfo) != 0) break;
-
-            recno++;
-        }
-
-        conf.setFilename(recname);
-    } else {
-        conf.setFilename("mandelbulb.conf");
+        recno++;
     }
 
-    ConfSection* section = new ConfSection("mandelbulb");
+    conf.setFilename(recname);
 
-    //save settings
+    gViewerSettings.exportDisplaySettings(conf);
+    gViewerSettings.exportViewerSettings(conf);
+    campath.save(conf);
 
-    section->setEntry(new ConfEntry("animated", animated));
-    section->setEntry(new ConfEntry("juliaset", juliaset));
-    section->setEntry(new ConfEntry("julia_c", julia_c));
-    section->setEntry(new ConfEntry("radiolaria", radiolaria));
-    section->setEntry(new ConfEntry("radiolariaFactor", radiolariaFactor));
-
-    section->setEntry(new ConfEntry("power", power));
-    section->setEntry(new ConfEntry("bounding", bounding));
-    section->setEntry(new ConfEntry("bailout", bailout));
-
-    section->setEntry(new ConfEntry("antialiasing", antialiasing));
-    section->setEntry(new ConfEntry("phong", phong));
-    section->setEntry(new ConfEntry("shadows", shadows));
-    section->setEntry(new ConfEntry("ambientOcclusion", ambientOcclusion));
-    section->setEntry(new ConfEntry("ambientOcclusionEmphasis", ambientOcclusionEmphasis));
-    section->setEntry(new ConfEntry("colorSpread", colorSpread));
-    section->setEntry(new ConfEntry("rimLight", rimLight));
-    section->setEntry(new ConfEntry("specularity", specularity));
-    section->setEntry(new ConfEntry("specularExponent", specularExponent));
-    section->setEntry(new ConfEntry("light", light));
-
-    section->setEntry(new ConfEntry("backgroundColor", backgroundColor));
-    section->setEntry(new ConfEntry("diffuseColor", diffuseColor));
-    section->setEntry(new ConfEntry("ambientColor", ambientColor));
-    section->setEntry(new ConfEntry("lightColor", lightColor));
-
-    section->setEntry(new ConfEntry("maxIterations", maxIterations));
-    section->setEntry(new ConfEntry("stepLimit", stepLimit));
-    section->setEntry(new ConfEntry("epsilonScale", epsilonScale));
-    section->setEntry(new ConfEntry("aoSteps", aoSteps));
-
-    section->setEntry(new ConfEntry("fogDistance", fogDistance));
-    section->setEntry(new ConfEntry("glowDepth", glowDepth));
-    section->setEntry(new ConfEntry("glowMulti", glowMulti));
-    section->setEntry(new ConfEntry("glowColour", glowColour));
-
-    section->setEntry(new ConfEntry("backgroundGradient", backgroundGradient));
-    section->setEntry(new ConfEntry("fov", fov));
-    section->setEntry(new ConfEntry("speed", speed));
-    section->setEntry(new ConfEntry("constantSpeed", constantSpeed));
-
-    conf.setSection(section);
-
-    if(saverec) {
-        campath.save(conf);
+    try {
+        conf.save();
+    } catch(ConfFileException& exception) {
+        SDLAppQuit(exception.what());
     }
-
-    conf.save();
 
     setMessage("Wrote " + conf.getFilename());
 }
-
-bool MandelbulbViewer::readConfig() {
-
-    if(conf.getFilename().size()==0) return false;
-
-    if(!conf.load()) return false;
-
-    ConfSection* settings = conf.getSection("mandelbulb");
-
-    if(settings == 0) return true;
-
-    if(settings->hasValue("animated"))
-        animated = settings->getBool("animated");
-
-    if(settings->hasValue("juliaset"))
-        juliaset = settings->getBool("juliaset");
-
-    if(settings->hasValue("julia_c"))
-        julia_c = settings->getVec3("julia_c");
-
-    if(settings->hasValue("radiolaria"))
-        radiolaria = settings->getBool("radiolaria");
-
-    if(settings->hasValue("radiolariaFactor"))
-        radiolariaFactor = settings->getFloat("radiolariaFactor");
-
-    if(settings->hasValue("power"))
-        power = settings->getFloat("power");
-
-    if(settings->hasValue("bounding"))
-        bounding = settings->getFloat("bounding");
-
-    if(settings->hasValue("bailout"))
-        bailout = settings->getFloat("bailout");
-
-    if(settings->hasValue("antialiasing"))
-        antialiasing = settings->getInt("antialiasing");
-
-    if(settings->hasValue("phong"))
-        phong = settings->getBool("phong");
-
-    if(settings->hasValue("fogDistance"))
-        fogDistance = settings->getFloat("fogDistance");
-
-    if(settings->hasValue("shadows"))
-        shadows = settings->getFloat("shadows");
-
-    if(settings->hasValue("ambientOcclusion"))
-        ambientOcclusion = settings->getFloat("ambientOcclusion");
-
-    if(settings->hasValue("ambientOcclusionEmphasis"))
-        ambientOcclusionEmphasis = settings->getFloat("ambientOcclusionEmphasis");
-
-    if(settings->hasValue("colorSpread"))
-        colorSpread = settings->getFloat("colorSpread");
-
-    if(settings->hasValue("rimLight"))
-        rimLight = settings->getFloat("rimLight");
-
-    if(settings->hasValue("specularity"))
-        specularity = settings->getFloat("specularity");
-
-    if(settings->hasValue("specularExponent"))
-        specularExponent = settings->getFloat("specularExponent");
-
-    if(settings->hasValue("light"))
-        light = settings->getVec3("light");
-
-    if(settings->hasValue("backgroundColor"))
-        backgroundColor = settings->getVec4("backgroundColor");
-
-    if(settings->hasValue("diffuseColor"))
-        diffuseColor = settings->getVec4("diffuseColor");
-
-    if(settings->hasValue("ambientColor"))
-        ambientColor = settings->getVec4("ambientColor");
-
-    if(settings->hasValue("lightColor"))
-        lightColor = settings->getVec4("lightColor");
-
-    if(settings->hasValue("maxIterations"))
-        maxIterations = settings->getInt("maxIterations");
-
-    if(settings->hasValue("stepLimit"))
-        stepLimit = settings->getInt("stepLimit");
-
-    if(settings->hasValue("epsilonScale"))
-        epsilonScale = settings->getFloat("epsilonScale");
-
-    if(settings->hasValue("backgroundGradient"))
-        backgroundGradient = settings->getBool("backgroundGradient");
-
-    if(settings->hasValue("fov"))
-        fov = settings->getFloat("fov");
-
-    if(settings->hasValue("aoSteps"))
-        aoSteps = settings->getFloat("aoSteps");
-
-    if(settings->hasValue("glowDepth"))
-        glowDepth = settings->getFloat("glowDepth");
-
-    if(settings->hasValue("glowMulti"))
-        glowMulti = settings->getFloat("glowMulti");
-
-    if(settings->hasValue("glowColour"))
-        glowColour = settings->getVec3("glowColour");
-
-    if(settings->hasValue("constantSpeed"))
-        constantSpeed = settings->getBool("constantSpeed");
-
-    if(settings->hasValue("beat"))
-        beat = settings->getFloat("beat");
-
-    return true;
-}
-
 
 void MandelbulbViewer::toggleRecord() {
     if(play) return;
@@ -726,7 +376,7 @@ void MandelbulbViewer::toggleRecord() {
     if(record) {
         campath.clear();
     } else {
-        saveConfig(true);
+        saveRecording();
     }
 }
 
@@ -774,11 +424,11 @@ void MandelbulbViewer::mouseClick(SDL_MouseButtonEvent *e) {
         }
 
         if(e->button == SDL_BUTTON_WHEELUP) {
-            speed *= 2.0;
+            gViewerSettings.speed *= 2.0;
         }
 
         if(e->button == SDL_BUTTON_WHEELDOWN) {
-            speed /= 2.0;
+            gViewerSettings.speed /= 2.0;
         }
 
     }
@@ -809,8 +459,8 @@ void MandelbulbViewer::moveCam(float dt) {
     float cam_distance = campos.length2();
     cam_distance *= cam_distance;
 
-    float amount = constantSpeed ?
-        speed * dt : speed * std::min(1.0f, cam_distance) * dt;
+    float amount = gViewerSettings.constantSpeed ?
+        gViewerSettings.speed * dt : gViewerSettings.speed * std::min(1.0f, cam_distance) * dt;
 
     Uint8* keyState = SDL_GetKeyState(NULL);
 
@@ -882,7 +532,7 @@ void MandelbulbViewer::update(float t, float dt) {
     //if exporting a video use a fixed tick rate rather than time based
     if(frameExporter != 0) dt = fixed_tick_rate;
 
-    dt *= timescale;
+    dt *= gViewerSettings.timescale;
 
     runtime += dt;
 
@@ -928,36 +578,37 @@ void MandelbulbViewer::logic(float t, float dt) {
     }
 
     //update beat
-    if(beat>0.0) {
+    if(gViewerSettings.beat>0.0) {
         beatTimer += dt;
-        if(beatTimer>beat*2.0) {
+
+        if(beatTimer>gViewerSettings.beat*2.0) {
             beatTimer=0.0;
             beatCount++;
 
-            if(beatCount % beatPeriod == 0) {
-                glowColour = vec3f(rand() % 100, rand() % 100, rand() % 100).normal();
+            if(beatCount % gViewerSettings.beatPeriod == 0) {
+                gViewerSettings.glowColour = vec3f(rand() % 100, rand() % 100, rand() % 100).normal();
             }
         }
 
-        float beatpc = beatTimer/beat;
+        float beatpc = beatTimer/gViewerSettings.beat;
         if(beatpc>1.0) beatpc = 2.0-beatpc;
 
-        beatGlowDepth = glowDepth * 0.5 + 0.5 * glowDepth * beatpc;
-        beatGlowMulti = glowMulti * 0.5 + 0.5 * glowMulti * beatpc;
+        beatGlowDepth = gViewerSettings.glowDepth * 0.5 + 0.5 * gViewerSettings.glowDepth * beatpc;
+        beatGlowMulti = gViewerSettings.glowMulti * 0.5 + 0.5 * gViewerSettings.glowMulti * beatpc;
     }
 
     //update julia seed
-    _julia_c = julia_c;
+    _julia_c = gViewerSettings.julia_c;
 
-    if(animated) {
-        _julia_c = julia_c + vec3f(sinf(time_elapsed), sinf(time_elapsed), atan(time_elapsed)) * 0.1;
+    if(gViewerSettings.animated) {
+        _julia_c = gViewerSettings.julia_c + vec3f(sinf(time_elapsed), sinf(time_elapsed), atan(time_elapsed)) * 0.1;
     }
 
     //to avoid a visible sphere we need to set the bounding
     //sphere to be greater than the camera's distance from the
     //origin
-    if(backgroundGradient) {
-        bounding = std::max(bounding, view.getPos().length2());
+    if(gViewerSettings.backgroundGradient) {
+        gViewerSettings.bounding = std::max(gViewerSettings.bounding, view.getPos().length2());
     }
 
 //    float amount = 90 * dt;
@@ -1006,59 +657,64 @@ void MandelbulbViewer::drawMandelbulb() {
 
     shader->setVec3("camera",         campos);
     shader->setVec3("cameraFine",     vec3f(0.0f, 0.0f, 0.0f));
-    shader->setFloat("cameraZoom",    cameraZoom);
+    shader->setFloat("cameraZoom",    gViewerSettings.cameraZoom);
 
-    shader->setInteger("julia", juliaset);
-    shader->setVec3("julia_c", _julia_c);
+    shader->setInteger("julia", gViewerSettings.juliaset);
+    shader->setVec3("julia_c",  _julia_c);
 
-    shader->setInteger("radiolaria", radiolaria);
-    shader->setFloat("radiolariaFactor", radiolariaFactor);
+    shader->setInteger("radiolaria", gViewerSettings.radiolaria);
+    shader->setFloat("radiolariaFactor", gViewerSettings.radiolariaFactor);
 
-    shader->setFloat("power", power);
-    shader->setFloat("bounding", bounding );
-    shader->setFloat("bailout", bailout );
+    shader->setFloat("power", gViewerSettings.power);
 
-    shader->setInteger("antialiasing", antialiasing);
-    shader->setInteger("phong", phong);
-    shader->setFloat("shadows", shadows);
-    shader->setFloat("ambientOcclusion", ambientOcclusion);
-    shader->setFloat("ambientOcclusionEmphasis", ambientOcclusionEmphasis);
-    shader->setFloat("colorSpread",      colorSpread);
-    shader->setFloat("rimLight",         rimLight);
-    shader->setFloat("specularity",      specularity);
-    shader->setFloat("specularExponent", specularExponent);
+    shader->setFloat("bounding", gViewerSettings.bounding );
+    shader->setFloat("bailout",  gViewerSettings.bailout );
 
-    shader->setVec3("light", light);
+    shader->setInteger("antialiasing", gViewerSettings.antialiasing);
 
-    shader->setVec4("backgroundColor", backgroundColor);
-    shader->setVec4("diffuseColor",    diffuseColor);
-    shader->setVec4("ambientColor",    ambientColor);
-    shader->setVec4("lightColor",      lightColor);
+    shader->setInteger("phong", gViewerSettings.phong);
+    shader->setFloat("shadows", gViewerSettings.shadows);
+
+    shader->setFloat("ambientOcclusion", gViewerSettings.ambientOcclusion);
+    shader->setFloat("ambientOcclusionEmphasis", gViewerSettings.ambientOcclusionEmphasis);
+
+    shader->setFloat("colorSpread",      gViewerSettings.colorSpread);
+    shader->setFloat("rimLight",         gViewerSettings.rimLight);
+    shader->setFloat("specularity",      gViewerSettings.specularity);
+    shader->setFloat("specularExponent", gViewerSettings.specularExponent);
+
+    shader->setVec3("light", gViewerSettings.light);
+
+    shader->setVec4("backgroundColor", gViewerSettings.backgroundColor);
+    shader->setVec4("diffuseColor",    gViewerSettings.diffuseColor);
+    shader->setVec4("ambientColor",    gViewerSettings.ambientColor);
+    shader->setVec4("lightColor",      gViewerSettings.lightColor);
 
     shader->setMat3("viewRotation", viewRotation);
     shader->setMat3("objRotation",  mandelbulb.getRotationMatrix());
 
-    shader->setInteger("maxIterations", maxIterations);
-    shader->setInteger("stepLimit",     stepLimit);
-    shader->setFloat("epsilonScale",    epsilonScale);
+    shader->setInteger("maxIterations", gViewerSettings.maxIterations);
+    shader->setInteger("stepLimit",     gViewerSettings.stepLimit);
+    shader->setFloat("epsilonScale",    gViewerSettings.epsilonScale);
 
-    shader->setFloat("aoSteps", aoSteps);
-    shader->setFloat("fogDistance", fogDistance);
+    shader->setFloat("aoSteps", gViewerSettings.aoSteps);
+
+    shader->setFloat("fogDistance", gViewerSettings.fogDistance);
 
 
-    if(beat>0.0) {
+    if(gViewerSettings.beat>0.0) {
         shader->setFloat("glowDepth", beatGlowDepth);
         shader->setFloat("glowMulti", beatGlowMulti);
     } else {
-        shader->setFloat("glowDepth", glowDepth);
-        shader->setFloat("glowMulti", glowMulti);
+        shader->setFloat("glowDepth", gViewerSettings.glowDepth);
+        shader->setFloat("glowMulti", gViewerSettings.glowMulti);
     }
 
-    shader->setVec3("glowColour", glowColour);
+    shader->setVec3("glowColour", gViewerSettings.glowColour);
 
 
-    shader->setInteger("backgroundGradient", backgroundGradient);
-    shader->setFloat("fov",  fov);
+    shader->setInteger("backgroundGradient", gViewerSettings.backgroundGradient);
+    shader->setFloat("fov",  gViewerSettings.fov);
 
     drawAlignedQuad(vwidth, vheight);
 
@@ -1121,14 +777,14 @@ void MandelbulbViewer::draw(float t, float dt) {
         vec3f campos = view.getPos();
 
         font.print(0, 20, "fps: %.2f", fps);
-        font.print(0, 40, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, speed);
-        font.print(0, 60, "power: %.2f", power);
-        font.print(0, 80, "maxIterations: %d", maxIterations);
-        font.print(0, 100, "epsilonScale: %.5f", epsilonScale);
-        font.print(0, 120,"aoSteps: %.5f", aoSteps);
+        font.print(0, 40, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, gViewerSettings.speed);
+        font.print(0, 60, "power: %.2f", gViewerSettings.power);
+        font.print(0, 80, "maxIterations: %d", gViewerSettings.maxIterations);
+        font.print(0, 100, "epsilonScale: %.5f", gViewerSettings.epsilonScale);
+        font.print(0, 120,"aoSteps: %.5f", gViewerSettings.aoSteps);
         font.print(0, 140,"dt: %.5f", dt);
 
-        if(juliaset) {
+        if(gViewerSettings.juliaset) {
             font.print(0, 140, "julia_c: %.2f,%.2f,%.2f", _julia_c.x, _julia_c.y, _julia_c.z);
         }
     }

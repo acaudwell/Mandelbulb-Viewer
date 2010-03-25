@@ -24,15 +24,12 @@
 #include "core/display.h"
 #include "core/shader.h"
 #include "core/fxfont.h"
-#include "core/conffile.h"
 #include "core/pi.h"
+
+#include "viewer_settings.h"
 
 #include "vcamera.h"
 #include "ppm.h"
-
-#define MANDELBULB_VIEWER_VERSION "0.1"
-
-void mandelbulb_help();
 
 class MandelbulbViewer : public SDLApp {
 
@@ -41,8 +38,6 @@ class MandelbulbViewer : public SDLApp {
 
     Shader* shader;
     FXFont font;
-
-    ConfFile conf;
 
     bool debug;
 
@@ -62,7 +57,6 @@ class MandelbulbViewer : public SDLApp {
     FrameExporter* frameExporter;
 
     float runtime;
-    float timescale;
     float fixed_tick_rate;
 
     int frame_skip;
@@ -73,7 +67,6 @@ class MandelbulbViewer : public SDLApp {
     ViewCameraPath campath;
 
     bool paused;
-    bool animated;
 
     vec2f mousepos;
     bool roll;
@@ -85,61 +78,14 @@ class MandelbulbViewer : public SDLApp {
     mat3f viewRotation;
     mat3f objRotation;
 
-    bool constantSpeed;
-
-    bool backgroundGradient;
-    bool juliaset;
-    vec3f julia_c;
-    vec3f _julia_c;
-
     float speed;
-    float fov;
-    float cameraZoom;
 
-    int antialiasing;
-    bool phong;
-
-    float shadows;
-
-    float specularity;
-    float specularExponent;
-
-    float ambientOcclusion;
-    float ambientOcclusionEmphasis;
-
-    float power;
-    float bounding;
-    float bailout;
-    float epsilonScale;
-    int maxIterations;
-    int stepLimit;
-
-    float fogDistance;
-    float aoSteps;
-
-    float glowDepth;
-    float glowMulti;
-    vec3f glowColour;
-
-    float beat;
     float beatTimer;
+    int   beatCount;
     float beatGlowDepth;
     float beatGlowMulti;
-    int beatCount;
-    int beatPeriod;
 
-    bool radiolaria;
-    float radiolariaFactor;
-
-    float colorSpread;
-    float rimLight;
-
-    vec3f light;
-
-    vec4f  backgroundColor;
-    vec4f  diffuseColor;
-    vec4f  ambientColor;
-    vec4f  lightColor;
+    vec3f _julia_c;
 
     void randomizeJuliaSeed();
     void randomizeColours();
@@ -160,7 +106,7 @@ class MandelbulbViewer : public SDLApp {
 
     void drawMandelbulb();
 public:
-    MandelbulbViewer(std::string conffile, float viewscale, float timescale);
+    MandelbulbViewer(ConfFile& conf);
     ~MandelbulbViewer();
 
     void logic(float t, float dt);
@@ -168,8 +114,7 @@ public:
 
     void createVideo(std::string filename, int video_framerate);
 
-    bool readConfig();
-    void saveConfig(bool saverec);
+    void saveRecording();
 
     //inherited methods
     void init();

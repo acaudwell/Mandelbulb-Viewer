@@ -42,8 +42,10 @@ int main(int argc, char *argv[]) {
         if(conffiles.size()>0) {
             conffile = conffiles[conffiles.size()-1];
             conf.load(conffile);
+            gViewerSettings.parseArgs(argc, argv, conf, &conffiles);
         }
 
+        gViewerSettings.importDisplaySettings(conf);
         gViewerSettings.importViewerSettings(conf);
 
     } catch(ConfFileException& exception) {
@@ -58,7 +60,7 @@ int main(int argc, char *argv[]) {
 
     display.enableVsync(true);
 
-    display.init("Mandelbulb Viewer", width, height, fullscreen);
+    display.init("Mandelbulb Viewer", gViewerSettings.display_width, gViewerSettings.display_height, fullscreen);
 
     if(gViewerSettings.multisample) glEnable(GL_MULTISAMPLE_ARB);
 
@@ -317,6 +319,10 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
         if (e->keysym.sym ==  SDLK_F8) {
             gViewerSettings.glowMulti *= 1.1;
+        }
+
+        if (e->keysym.sym ==  SDLK_F9) {
+            if(!(play||record)) saveRecording();
         }
 
         if (e->keysym.sym ==  SDLK_HOME) {

@@ -105,6 +105,8 @@ int main(int argc, char *argv[]) {
 MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
     shaderfile = "MandelbulbQuick";
 
+    mousemove = false;
+
     shader = 0;
     time_elapsed = 0;
     paused = false;
@@ -229,12 +231,20 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             toggleRecord();
         }
 
+        if(e->keysym.sym == SDLK_e) {
+            resetCamPath();
+        }
+
         if (e->keysym.sym == SDLK_p) {
             togglePlay();
         }
 
-        if (e->keysym.sym == SDLK_o) {
-            addWaypoint(1.0);
+        if (e->keysym.sym == SDLK_f) {
+            if(!record) addWaypoint(-1.0);
+        }
+
+        if(e->keysym.sym == SDLK_g) {
+            removeWaypoint();
         }
 
         if (e->keysym.sym ==  SDLK_c) {
@@ -366,6 +376,14 @@ void MandelbulbViewer::saveRecording() {
     setMessage("Wrote " + conf.getFilename());
 }
 
+void MandelbulbViewer::resetCamPath() {
+    if(play || record) return;
+
+    campath.clear();
+
+    setMessage("Camera path reset");
+}
+
 void MandelbulbViewer::toggleRecord() {
     if(play) return;
 
@@ -375,6 +393,7 @@ void MandelbulbViewer::toggleRecord() {
     //start new recording
     if(record) {
         campath.clear();
+        setMessage("Recording", vec3f(1.0, 0.0, 0.0));
     } else {
         saveRecording();
     }
@@ -387,13 +406,47 @@ void MandelbulbViewer::togglePlay() {
     campath.reset();
 }
 
+void MandelbulbViewer::removeWaypoint() {
+    if(record || play) return;
+
+    if(campath.size()>0) {
+        int size = campath.size();
+
+        campath.deleteLast();
+
+        char msgbuff[256];
+        snprintf(msgbuff, 256, "Deleted Waypoint %d", campath.size());
+        setMessage(msgbuff);
+    }
+}
+
 void MandelbulbViewer::addWaypoint(float duration) {
+    if(play) return;
+
     if(campath.size()==0) duration = 0.0;
 
+    //calculate duration from distance
+    if(duration<0.0) {
+        campath.setUnitsPerSecond(gViewerSettings.speed);
+    } else {
+        campath.setUnitsPerSecond(-1.0f);
+    }
+
     ViewCameraEvent* e = new ViewCameraEvent(view, duration);
+
     campath.addEvent(e);
+
+    vec3f red(1.0, 0.0, 0.0);
+
+    char msgbuff[256];
+    snprintf(msgbuff, 256, "%s %d", "Added Waypoint", campath.size());
+
+    setMessage(msgbuff, red);
+
 }
 void MandelbulbViewer::mouseMove(SDL_MouseMotionEvent *e) {
+
+    mousemove = true;
 
     //debugLog("mouseMove %d %d\n", e->xrel, e->yrel);
     if(mouselook) {
@@ -571,11 +624,14 @@ void MandelbulbViewer::logic(float t, float dt) {
     if(record) {
         record_frame_delta += dt;
 
-        if(frame_count % record_frame_skip == 0) {
+        if(mousemove || frame_count % record_frame_skip == 0) {
             addWaypoint(record_frame_delta);
+//            addWaypoint(-1.0);
             record_frame_delta = 0.0;
         }
     }
+
+    mousemove = false;
 
     //update beat
     if(gViewerSettings.beat>0.0) {
@@ -616,14 +672,6 @@ void MandelbulbViewer::logic(float t, float dt) {
 
     viewRotation = view.getRotationMatrix();
     frame_count++;
-
-    if(record) {
-        vec3f red(1.0, 0.0, 0.0);
-
-        char msgbuff[256];
-        snprintf(msgbuff, 256, "Recording %d", campath.size());
-        setMessage(std::string(msgbuff), red);
-    }
 
     if(play) {
         vec3f green(0.0, 1.0, 0.0);

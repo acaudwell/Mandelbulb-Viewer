@@ -185,6 +185,10 @@ float ViewCameraEvent::getDuration() {
     return duration;
 }
 
+void ViewCameraEvent::setDuration(float duration) {
+    this->duration = duration;
+}
+
 ViewCamera ViewCameraEvent::getCamera() {
     return finish;
 }
@@ -208,11 +212,16 @@ void ViewCameraEvent::logic(float dt, ViewCamera* cam) {
 
 ViewCameraPath::ViewCameraPath(bool loop) {
     this->loop = loop;
+    this->units_per_second = -1.0;
     reset();
 }
 
 ViewCameraPath::~ViewCameraPath() {
     clear();
+}
+
+void ViewCameraPath::setUnitsPerSecond(float units_per_second) {
+    this->units_per_second = units_per_second;
 }
 
 void ViewCameraPath::load(ConfFile& conf) {
@@ -278,7 +287,27 @@ void ViewCameraPath::clear() {
     reset();
 }
 
+void ViewCameraPath::deleteLast() {
+    if(events.size() > 0) {
+        ViewCameraEvent* last = events.back();
+        events.pop_back();
+        delete last;
+    }
+}
+
+
 void ViewCameraPath::addEvent(ViewCameraEvent* ce) {
+
+    if(units_per_second>0.0 && events.size()>0) {
+        ViewCameraEvent* last = events[events.size()-1];
+
+        float dist = (ce->getCamera().getPos() - last->getCamera().getPos()).length();
+
+        float duration = (1.0/units_per_second) * dist;
+
+        ce->setDuration(duration);
+    }
+
     events.push_back(ce);
 }
 

@@ -33,6 +33,8 @@
 
 class MandelbulbViewer : public SDLApp {
 
+    bool mousemove;
+
     int vwidth;
     int vheight;
 
@@ -62,8 +64,6 @@ class MandelbulbViewer : public SDLApp {
     int frame_skip;
     int frame_count;
 
-    bool record_frame;
-
     ViewCameraPath campath;
 
     bool paused;
@@ -92,8 +92,10 @@ class MandelbulbViewer : public SDLApp {
 
     void togglePlay();
     void toggleRecord();
+    void resetCamPath();
 
     void addWaypoint(float duration);
+    void removeWaypoint();
 
     void moveCam(float dt);
 

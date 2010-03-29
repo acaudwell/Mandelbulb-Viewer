@@ -85,6 +85,7 @@ public:
 
     ViewCamera getCamera();
     float getDuration();
+    void setDuration(float duration);
 
     bool isFinished();
 
@@ -99,6 +100,8 @@ class ViewCameraPath {
     bool loop;
     bool finished;
 
+    float units_per_second;
+
     std::vector<ViewCameraEvent*> events;
 public:
     ViewCameraPath(bool loop = false);
@@ -111,6 +114,9 @@ public:
 
     int getIndex();
 
+    void setUnitsPerSecond(float units_per_second);
+
+    void deleteLast();
     void addEvent(ViewCameraEvent* ce);
     void clear();
     void reset();

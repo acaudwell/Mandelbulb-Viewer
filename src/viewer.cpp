@@ -319,6 +319,14 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             gViewerSettings.glowMulti *= 1.1;
         }
 
+        if (e->keysym.sym ==  SDLK_HOME) {
+            if(gViewerSettings.fov>1) gViewerSettings.fov -= 1 ;
+        }
+
+        if (e->keysym.sym ==  SDLK_END) {
+            if(gViewerSettings.fov<180) gViewerSettings.fov += 1;
+        }
+
         if (e->keysym.sym ==  SDLK_MINUS) {
 //            if(power>1.0) power -= 1.0;
             gViewerSettings.power -= 1.0;

@@ -56,6 +56,8 @@
 		<Unit filename="src\core\resource.h" />
 		<Unit filename="src\core\sdlapp.cpp" />
 		<Unit filename="src\core\sdlapp.h" />
+		<Unit filename="src\core\settings.cpp" />
+		<Unit filename="src\core\settings.h" />
 		<Unit filename="src\core\shader.cpp" />
 		<Unit filename="src\core\shader.h" />
 		<Unit filename="src\core\stringhash.cpp" />
@@ -69,6 +71,8 @@
 		<Unit filename="src\vcamera.h" />
 		<Unit filename="src\viewer.cpp" />
 		<Unit filename="src\viewer.h" />
+		<Unit filename="src\viewer_settings.cpp" />
+		<Unit filename="src\viewer_settings.h" />
 		<Extensions>
 			<code_completion />
 			<envvars />

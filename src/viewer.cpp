@@ -368,10 +368,9 @@ void MandelbulbViewer::saveRecording() {
     struct stat finfo;
     int recno = 1;
 
-    while(1) {
-        snprintf(recname, 256, "%06d.mdb", recno);
+    while(recno < 10000) {
+        snprintf(recname, 256, "mandelbulb-%04d.mdb", recno);
         if(stat(recname, &finfo) != 0) break;
-
         recno++;
     }
 

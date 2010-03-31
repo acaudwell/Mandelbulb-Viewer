@@ -65,6 +65,11 @@ public:
     float glowMulti;
     vec3f glowColour;
 
+    bool  pulsate;
+    float pulseScale;
+
+    vec3f rotation;
+
     float beat;
     int beatPeriod;
 

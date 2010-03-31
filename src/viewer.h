@@ -84,6 +84,7 @@ class MandelbulbViewer : public SDLApp {
     int   beatCount;
     float beatGlowDepth;
     float beatGlowMulti;
+    float pulse;
 
     vec3f _julia_c;
 

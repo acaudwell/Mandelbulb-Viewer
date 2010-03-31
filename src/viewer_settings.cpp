@@ -153,6 +153,8 @@ void MandelbulbViewerSettings::setViewerDefaults() {
 
     light = vec3f(38, -42, 38);
 
+    rotation        = vec3f(0.0f, 0.0f, 0.0f);
+
     backgroundColor = vec4f(0.0, 0.0, 0.0, 1.0);
     diffuseColor    = vec4f(0.0, 0.85, 0.99, 1.0);
     ambientColor    = vec4f(0.67, 0.85, 1.0, 1.0);
@@ -164,6 +166,9 @@ void MandelbulbViewerSettings::setViewerDefaults() {
 
     beat = 0.0;
     beatPeriod = 8;
+
+    pulsate = false;
+    pulseScale = 2.0f;
 }
 
 void MandelbulbViewerSettings::importViewerSettings(ConfFile& conf) {
@@ -285,6 +290,16 @@ void MandelbulbViewerSettings::importViewerSettings(ConfFile& conf) {
 
     if(settings->hasValue("viewscale"))
         viewscale = settings->getFloat("viewscale");
+
+    if(settings->hasValue("pulseScale"))
+        pulseScale = settings->getFloat("pulseScale");
+
+    if(settings->hasValue("pulsate"))
+        pulsate = settings->getBool("pulsate");
+
+    if(settings->hasValue("rotation"))
+        rotation = settings->getVec3("rotation");
+
 }
 
 void MandelbulbViewerSettings::exportViewerSettings(ConfFile& conf) {
@@ -324,6 +339,11 @@ void MandelbulbViewerSettings::exportViewerSettings(ConfFile& conf) {
     section->setEntry(new ConfEntry("epsilonScale", epsilonScale));
     section->setEntry(new ConfEntry("aoSteps", aoSteps));
 
+    section->setEntry(new ConfEntry("beat", beat));
+
+    section->setEntry(new ConfEntry("pulsate", pulsate));
+    section->setEntry(new ConfEntry("pulseScale", pulseScale));
+
     section->setEntry(new ConfEntry("fogDistance", fogDistance));
     section->setEntry(new ConfEntry("glowDepth", glowDepth));
     section->setEntry(new ConfEntry("glowMulti", glowMulti));
@@ -333,6 +353,8 @@ void MandelbulbViewerSettings::exportViewerSettings(ConfFile& conf) {
     section->setEntry(new ConfEntry("fov", fov));
     section->setEntry(new ConfEntry("speed", speed));
     section->setEntry(new ConfEntry("constantSpeed", constantSpeed));
+
+    section->setEntry(new ConfEntry("rotation", rotation));
 
     conf.setSection(section);
 }

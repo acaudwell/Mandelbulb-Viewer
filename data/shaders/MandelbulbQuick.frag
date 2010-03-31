@@ -81,12 +81,14 @@ uniform float glowDepth;
 uniform float glowMulti;
 uniform vec3  glowColour;
 
+uniform float Pulse;
+uniform float PulseScale;
+
 uniform mat3 viewRotation;
 uniform mat3 objRotation;
 
 uniform bool backgroundGradient;
 uniform float fov;
-
 #define PI 3.141592653
 #define MIN_EPSILON 3e-7
 
@@ -152,9 +154,12 @@ float DE(vec3 z0, inout float min_dist)
 
 	for (int n = 0; n < maxIterations; n++) {
 		powN(z, r, dr);
+
 		z += c;
+        if(Pulse>0.0) z *= sin(Pulse*0.5+0.5)*PulseScale;
 
 		if (radiolaria && z.y > radiolariaFactor) z.y = radiolariaFactor;
+
 
 		r = length(z);
 		if (r < min_dist) min_dist = r;

@@ -107,6 +107,8 @@ int main(int argc, char *argv[]) {
 MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
     shaderfile = "MandelbulbQuick";
 
+    debug = false;
+
     mousemove = false;
 
     shader = 0;
@@ -122,6 +124,8 @@ MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
     beatTimer     = 0.0;
     beatGlowDepth = 0.0;
     beatGlowMulti = 0.0;
+
+    pulse = -1.0;
 
     play = false;
     record = false;
@@ -226,7 +230,7 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym == SDLK_F11) {
-            gViewerSettings.beat = 0.218;
+            gViewerSettings.beat = gViewerSettings.beat > 0.0f ? 0.0f : 0.218f;
         }
 
         if (e->keysym.sym == SDLK_r) {
@@ -298,11 +302,11 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym ==  SDLK_F3) {
-            gViewerSettings.fogDistance -= 0.25;
+            gViewerSettings.fogDistance -= 0.1;
         }
 
         if (e->keysym.sym ==  SDLK_F4) {
-            gViewerSettings.fogDistance += 0.25;
+            gViewerSettings.fogDistance += 0.1;
         }
 
         if (e->keysym.sym ==  SDLK_F5) {
@@ -659,11 +663,12 @@ void MandelbulbViewer::logic(float t, float dt) {
             }
         }
 
-        float beatpc = beatTimer/gViewerSettings.beat;
-        if(beatpc>1.0) beatpc = 2.0-beatpc;
+        pulse = beatTimer/gViewerSettings.beat;
 
-        beatGlowDepth = gViewerSettings.glowDepth * 0.5 + 0.5 * gViewerSettings.glowDepth * beatpc;
-        beatGlowMulti = gViewerSettings.glowMulti * 0.5 + 0.5 * gViewerSettings.glowMulti * beatpc;
+        if(pulse>1.0) pulse = 2.0-pulse;
+
+        beatGlowDepth = gViewerSettings.glowDepth * 0.5 + 0.5 * gViewerSettings.glowDepth * pulse;
+        beatGlowMulti = gViewerSettings.glowMulti * 0.5 + 0.5 * gViewerSettings.glowMulti * pulse;
     }
 
     //update julia seed
@@ -680,8 +685,9 @@ void MandelbulbViewer::logic(float t, float dt) {
         gViewerSettings.bounding = std::max(gViewerSettings.bounding, view.getPos().length2());
     }
 
-//    float amount = 90 * dt;
-//    mandelbulb.rotateY(dt * 90.0f * DEGREES_TO_RADIANS);
+    mandelbulb.rotateX(gViewerSettings.rotation.x * dt * DEGREES_TO_RADIANS);
+    mandelbulb.rotateY(gViewerSettings.rotation.y * dt * DEGREES_TO_RADIANS);
+    mandelbulb.rotateZ(gViewerSettings.rotation.z * dt * DEGREES_TO_RADIANS);
 
     viewRotation = view.getRotationMatrix();
     frame_count++;
@@ -770,6 +776,9 @@ void MandelbulbViewer::drawMandelbulb() {
         shader->setFloat("glowDepth", gViewerSettings.glowDepth);
         shader->setFloat("glowMulti", gViewerSettings.glowMulti);
     }
+
+    shader->setFloat("Pulse", gViewerSettings.pulsate ? pulse : -1.0f);
+    shader->setFloat("PulseScale", gViewerSettings.pulseScale);
 
     shader->setVec3("glowColour", gViewerSettings.glowColour);
 

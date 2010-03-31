@@ -81,6 +81,7 @@ uniform float glowDepth;
 uniform float glowMulti;
 uniform vec3  glowColour;
 
+uniform bool  Rave;
 uniform float Pulse;
 uniform float PulseScale;
 
@@ -393,6 +394,8 @@ vec4 renderPixel(vec2 pixel)
 
         if(glowDepth>0.0) {
             float glow_alpha = min(min_dist,glowDepth)/glowDepth;
+            if(Rave) glow_alpha += ao;
+
             glow_alpha*=glow_alpha;
 
             //colour distance from centre

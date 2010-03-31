@@ -167,7 +167,10 @@ void MandelbulbViewerSettings::setViewerDefaults() {
     beat = 0.0;
     beatPeriod = 8;
 
+    rave = false;
     pulsate = false;
+    pulsateFov = false;
+    pulseFovScale = 0.5f;
     pulseScale = 2.0f;
 }
 
@@ -285,6 +288,9 @@ void MandelbulbViewerSettings::importViewerSettings(ConfFile& conf) {
     if(settings->hasValue("beat"))
         beat = settings->getFloat("beat");
 
+    if(settings->hasValue("beatPeriod"))
+        beatPeriod = settings->getInt("beatPeriod");
+
     if(settings->hasValue("timescale"))
         timescale = settings->getFloat("timescale");
 
@@ -294,8 +300,17 @@ void MandelbulbViewerSettings::importViewerSettings(ConfFile& conf) {
     if(settings->hasValue("pulseScale"))
         pulseScale = settings->getFloat("pulseScale");
 
+    if(settings->hasValue("rave"))
+        rave = settings->getBool("rave");
+
     if(settings->hasValue("pulsate"))
         pulsate = settings->getBool("pulsate");
+
+    if(settings->hasValue("pulsateFov"))
+        pulsateFov = settings->getBool("pulsateFov");
+
+    if(settings->hasValue("pulseFovScale"))
+        pulseFovScale = settings->getFloat("pulseFovScale");
 
     if(settings->hasValue("rotation"))
         rotation = settings->getVec3("rotation");
@@ -340,8 +355,12 @@ void MandelbulbViewerSettings::exportViewerSettings(ConfFile& conf) {
     section->setEntry(new ConfEntry("aoSteps", aoSteps));
 
     section->setEntry(new ConfEntry("beat", beat));
+    section->setEntry(new ConfEntry("beatPeriod", beatPeriod));
 
+    section->setEntry(new ConfEntry("rave", rave));
     section->setEntry(new ConfEntry("pulsate", pulsate));
+    section->setEntry(new ConfEntry("pulsateFov", pulsateFov));
+    section->setEntry(new ConfEntry("pulseFovScale", pulseFovScale));
     section->setEntry(new ConfEntry("pulseScale", pulseScale));
 
     section->setEntry(new ConfEntry("fogDistance", fogDistance));

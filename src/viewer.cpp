@@ -205,6 +205,7 @@ void MandelbulbViewer::randomizeColours() {
     gViewerSettings.diffuseColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
     gViewerSettings.ambientColor = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
     gViewerSettings.lightColor   = vec4f(vec3f(rand() % 100, rand() % 100, rand() % 100).normal(), 1.0);
+    gViewerSettings.glowColour   = vec3f(rand() % 100, rand() % 100, rand() % 100).normal();
 }
 
 void MandelbulbViewer::init() {
@@ -227,6 +228,18 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
         if (e->keysym.sym == SDLK_ESCAPE) {
             appFinished=true;
+        }
+
+        if (e->keysym.sym == SDLK_1) {
+            gViewerSettings.pulsate = !gViewerSettings.pulsate;
+        }
+
+        if (e->keysym.sym == SDLK_2) {
+            gViewerSettings.rave = !gViewerSettings.rave;
+        }
+
+        if (e->keysym.sym == SDLK_3) {
+            gViewerSettings.pulsateFov = !gViewerSettings.pulsateFov;
         }
 
         if (e->keysym.sym == SDLK_F11) {
@@ -621,6 +634,7 @@ void MandelbulbViewer::update(float t, float dt) {
 }
 
 void MandelbulbViewer::logic(float t, float dt) {
+
     if(play) {
         campath.logic(dt, &view);
         if(campath.isFinished()) {
@@ -650,6 +664,12 @@ void MandelbulbViewer::logic(float t, float dt) {
 
     mousemove = false;
 
+    viewRotation = view.getRotationMatrix();
+
+    if(paused) return;
+
+    time_elapsed += dt;
+
     //update beat
     if(gViewerSettings.beat>0.0) {
         beatTimer += dt;
@@ -658,7 +678,7 @@ void MandelbulbViewer::logic(float t, float dt) {
             beatTimer=0.0;
             beatCount++;
 
-            if(beatCount % gViewerSettings.beatPeriod == 0) {
+            if(gViewerSettings.beatPeriod>0 && beatCount % gViewerSettings.beatPeriod == 0) {
                 gViewerSettings.glowColour = vec3f(rand() % 100, rand() % 100, rand() % 100).normal();
             }
         }
@@ -689,7 +709,6 @@ void MandelbulbViewer::logic(float t, float dt) {
     mandelbulb.rotateY(gViewerSettings.rotation.y * dt * DEGREES_TO_RADIANS);
     mandelbulb.rotateZ(gViewerSettings.rotation.z * dt * DEGREES_TO_RADIANS);
 
-    viewRotation = view.getRotationMatrix();
     frame_count++;
 
     if(play) {
@@ -777,6 +796,7 @@ void MandelbulbViewer::drawMandelbulb() {
         shader->setFloat("glowMulti", gViewerSettings.glowMulti);
     }
 
+    shader->setInteger("Rave", gViewerSettings.rave);
     shader->setFloat("Pulse", gViewerSettings.pulsate ? pulse : -1.0f);
     shader->setFloat("PulseScale", gViewerSettings.pulseScale);
 
@@ -784,7 +804,14 @@ void MandelbulbViewer::drawMandelbulb() {
 
 
     shader->setInteger("backgroundGradient", gViewerSettings.backgroundGradient);
-    shader->setFloat("fov",  gViewerSettings.fov);
+
+    if(!gViewerSettings.pulsateFov) {
+        shader->setFloat("fov", gViewerSettings.fov);
+    } else {
+        float pulse_fov = gViewerSettings.fov * sinf(pulse*0.5+0.5) * gViewerSettings.pulseFovScale;
+
+        shader->setFloat("fov", pulse_fov);
+    }
 
     drawAlignedQuad(vwidth, vheight);
 
@@ -820,10 +847,6 @@ void MandelbulbViewer::draw(float t, float dt) {
     if(appFinished) return;
 
     display.clear();
-
-    if(!paused) {
-        time_elapsed += dt;
-    }
 
     glDisable(GL_BLEND);
     glDisable(GL_TEXTURE_2D);

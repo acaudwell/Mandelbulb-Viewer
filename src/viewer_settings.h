@@ -65,8 +65,11 @@ public:
     float glowMulti;
     vec3f glowColour;
 
+    bool  rave;
     bool  pulsate;
     float pulseScale;
+    bool  pulsateFov;
+    float  pulseFovScale;
 
     vec3f rotation;
 

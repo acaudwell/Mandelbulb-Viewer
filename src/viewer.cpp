@@ -19,11 +19,6 @@
 
 int main(int argc, char *argv[]) {
 
-    int width  = 1024;
-    int height = 768;
-    bool fullscreen=false;
-    bool multisample=false;
-
     std::string conffile = "mandelbulb.conf";
 
     std::string ppm_file_name;
@@ -60,7 +55,7 @@ int main(int argc, char *argv[]) {
 
     display.enableVsync(true);
 
-    display.init("Mandelbulb Viewer", gViewerSettings.display_width, gViewerSettings.display_height, fullscreen);
+    display.init("Mandelbulb Viewer", gViewerSettings.display_width, gViewerSettings.display_height, gViewerSettings.fullscreen);
 
     if(gViewerSettings.multisample) glEnable(GL_MULTISAMPLE_ARB);
 

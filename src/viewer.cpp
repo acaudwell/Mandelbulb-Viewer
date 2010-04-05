@@ -19,8 +19,6 @@
 
 int main(int argc, char *argv[]) {
 
-    std::string conffile = "mandelbulb.conf";
-
     std::string ppm_file_name;
     int video_framerate = 60;
 
@@ -31,11 +29,10 @@ int main(int argc, char *argv[]) {
     ConfFile conf;
 
     try {
-        conf.load(conffile);
         gViewerSettings.parseArgs(argc, argv, conf, &conffiles);
 
         if(conffiles.size()>0) {
-            conffile = conffiles[conffiles.size()-1];
+            std::string conffile = conffiles[conffiles.size()-1];
             conf.load(conffile);
             gViewerSettings.parseArgs(argc, argv, conf, &conffiles);
         }
@@ -442,6 +439,8 @@ void MandelbulbViewer::removeWaypoint() {
         char msgbuff[256];
         snprintf(msgbuff, 256, "Deleted Waypoint %d", campath.size());
         setMessage(msgbuff);
+
+        campath.getLastCamera(view);
     }
 }
 

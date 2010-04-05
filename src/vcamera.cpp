@@ -287,6 +287,13 @@ void ViewCameraPath::clear() {
     reset();
 }
 
+bool ViewCameraPath::getLastCamera(ViewCamera& cam) {
+    if(events.size()==0) return false;
+    ViewCameraEvent* last = events.back();
+    cam = last->getCamera();
+    return true;
+}
+
 void ViewCameraPath::deleteLast() {
     if(events.size() > 0) {
         ViewCameraEvent* last = events.back();

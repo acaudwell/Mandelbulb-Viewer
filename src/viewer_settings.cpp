@@ -162,7 +162,7 @@ void MandelbulbViewerSettings::setViewerDefaults() {
     glowColour      = vec3f(1.0, 1.0, 0.0);
 
     glowMulti = 1.0;
-    glowDepth = 1.5;
+    glowDepth = -1.0;
 
     beat = 0.0;
     beatPeriod = 8;

@@ -107,6 +107,8 @@ public:
     ViewCameraPath(bool loop = false);
     ~ViewCameraPath();
 
+    bool getLastCamera(ViewCamera& cam);
+
     void load(ConfFile& conf);
     void save(ConfFile& conf);
 

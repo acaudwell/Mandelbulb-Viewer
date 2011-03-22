@@ -424,7 +424,7 @@ void main()
 		c = renderPixel(p);
 	}
 
-	if (c.a <= 0.0) discard;
+	//if (c.a <= 0.0) discard;
 
 	// Return the final color which is still the background color if we didn't hit anything.
 	gl_FragColor = c;

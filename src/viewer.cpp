@@ -1026,7 +1026,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     if(debug) {
         vec3f campos = view.getPos();
 
-        font.print(0, 20, "fps: %.2f (rps: %.2f, %d / %d)", fps, ((float)frame_count / t), scanline_count, render_height);
+        font.print(0, 20, "fps: %.2f", fps);
         font.print(0, 40, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, gViewerSettings.speed);
         font.print(0, 60, "power: %.2f", gViewerSettings.power);
         font.print(0, 80, "maxIterations: %d", gViewerSettings.maxIterations);

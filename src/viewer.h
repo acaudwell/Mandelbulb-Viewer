@@ -25,6 +25,7 @@
 #include "core/shader.h"
 #include "core/fxfont.h"
 #include "core/pi.h"
+#include "core/mousecursor.h"
 
 #include "viewer_settings.h"
 
@@ -35,8 +36,8 @@ class MandelbulbViewer : public SDLApp {
 
     bool mousemove;
 
-    int vwidth;
-    int vheight;
+    int render_width;
+    int render_height;
 
     Shader* shader;
     FXFont font;
@@ -63,7 +64,13 @@ class MandelbulbViewer : public SDLApp {
 
     int frame_skip;
     int frame_count;
+    int last_frame;
 
+    bool scanline_mode;
+    bool scanline_debug;
+    int scanline_count;
+    int scanline_batch_size;
+    
     ViewCameraPath campath;
 
     bool paused;
@@ -71,7 +78,8 @@ class MandelbulbViewer : public SDLApp {
     vec2f mousepos;
     bool roll;
     bool mouselook;
-
+    MouseCursor cursor;
+    
     ViewCamera view;
     Object3D mandelbulb;
 
@@ -104,10 +112,11 @@ class MandelbulbViewer : public SDLApp {
     void setDefaults();
 
     GLuint rendertex;
+    GLuint frametex;
 
     void drawAlignedQuad(int w, int h);
 
-    void drawMandelbulb();
+    void drawMandelbulb(float dt);
 public:
     MandelbulbViewer(ConfFile& conf);
     ~MandelbulbViewer();

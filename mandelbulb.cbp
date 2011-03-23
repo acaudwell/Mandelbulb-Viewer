@@ -49,6 +49,8 @@
 		<Unit filename="src\core\logger.cpp" />
 		<Unit filename="src\core\logger.h" />
 		<Unit filename="src\core\matrix.h" />
+		<Unit filename="src\core\mousecursor.cpp" />
+		<Unit filename="src\core\mousecursor.h" />
 		<Unit filename="src\core\pi.h" />
 		<Unit filename="src\core\regex.cpp" />
 		<Unit filename="src\core\regex.h" />

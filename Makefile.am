@@ -9,6 +9,7 @@ mandelbulb_SOURCES = \
 	src/core/extensions.cpp src/core/extensions.h \
 	src/core/fxfont.cpp src/core/fxfont.h \
 	src/core/logger.cpp src/core/logger.h \
+	src/core/mousecursor.cpp src/core/mousecursor.h \
 	src/core/pi.h \
 	src/core/regex.cpp src/core/regex.h \
 	src/core/resource.cpp src/core/resource.h \
@@ -26,7 +27,7 @@ mandelbulb_SOURCES = \
 
 CPPFLAGS = -DSDLAPP_RESOURCE_DIR=\"$(pkgdatadir)\"
 
-dist_pkgdata_DATA = data/shaders/MandelbulbQuick.frag data/shaders/MandelbulbQuick.vert
+dist_pkgdata_DATA = data/cursor.png data/shaders/MandelbulbQuick.frag data/shaders/MandelbulbQuick.vert
 
 CPPFLAGS += -DSDLAPP_SHADER_SUPPORT=1
 

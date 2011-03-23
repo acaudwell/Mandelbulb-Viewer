@@ -126,16 +126,17 @@ MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
     roll      = false;
 
     TextureResource* cursor_texture = texturemanager.grab("cursor.png");
-    
+
     cursor.useSystemCursor(false);
     cursor.showCursor(true);
     cursor.setCursorTexture(cursor_texture);
-    
+
     scanline_count      = 0;
     scanline_batch_size = 0;
+    scanline_target_fps = 60.0f;
     scanline_mode       = true;
     scanline_debug      = false;
-    
+
     runtime = 0.0;
     frame_skip = 0;
     frame_count = 0;
@@ -364,10 +365,10 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         if (e->keysym.sym == SDLK_q) {
             debug = !debug;
         }
-        
+
         if (e->keysym.sym == SDLK_z) {
             scanline_debug = !scanline_debug;
-        }        
+        }
 
         if(e->keysym.sym == SDLK_SPACE) {
             paused = !paused;
@@ -495,7 +496,7 @@ void MandelbulbViewer::mouseMove(SDL_MouseMotionEvent *e) {
          if(e->x == warp_x && e->y == warp_y) return;
 
         SDL_WarpMouse(warp_x, warp_y);
-         
+
         if(roll) {
             view.rotateZ(-(e->xrel / 10.0f) * DEGREES_TO_RADIANS);
             view.rotateX((e->yrel / 10.0f) * DEGREES_TO_RADIANS);
@@ -551,7 +552,7 @@ void MandelbulbViewer::mouseClick(SDL_MouseButtonEvent *e) {
 }
 
 void MandelbulbViewer::moveCam(float dt) {
-   
+
     mat3f camRotation = view.getRotationMatrix();
 
     vec3f campos = view.getPos();
@@ -650,7 +651,7 @@ void MandelbulbViewer::update(float t, float dt) {
         if(scanline_mode) scanline_count = 0;
         frame_count++;
     }
-    
+
     cursor.logic(dt);
     cursor.draw();
 }
@@ -675,16 +676,16 @@ void MandelbulbViewer::logic(float t, float dt) {
     } else {
         moveCam(dt);
     }
-    
+
     //set render width/height
     render_width  = display.width * gViewerSettings.viewscale;
     render_height = display.height * gViewerSettings.viewscale;
-        
+
     if(mouselook) {
         render_width  *= 0.25;
         render_height *= 0.25;
     }
-    
+
     //roll doesnt make any sense unless mouselook is enabled
     if(!mouselook) {
         roll = false;
@@ -762,7 +763,7 @@ void MandelbulbViewer::logic(float t, float dt) {
 
 
 void MandelbulbViewer::drawMandelbulb(float dt) {
-       
+
     vec3f campos = view.getPos();
 
     display.mode2D();
@@ -773,20 +774,20 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
         //on initial frame capture the background colour onto the render tex / frame tex
         if(frame_count == 0 && scanline_count == 0) {
             glEnable(GL_TEXTURE_2D);
-            
+
             glBindTexture(GL_TEXTURE_2D, rendertex);
             glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, render_width, render_height, 0);
-            
+
             glBindTexture(GL_TEXTURE_2D, frametex);
             glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, 0, display.width, display.height, 0);
         }
-        
+
         //draw partial frame
         if(scanline_count > 0) {
 
             glEnable(GL_TEXTURE_2D);
             glDisable(GL_BLEND);
-    
+
             glBindTexture(GL_TEXTURE_2D, rendertex);
 
             glBegin(GL_QUADS);
@@ -804,8 +805,8 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
             glEnd();
         }
     }
-    
-    
+
+
     //enable shader
     shader->use();
 
@@ -887,30 +888,48 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
 
     //set clipping area to area of scanline_batch_size
     if(scanline_mode) {
-                
+
         //TODO: calculate based on previous value + dt ?
-        scanline_batch_size = 20;
+
+        if(scanline_batch_size == 0) {
+
+            scanline_batch_size = 1;
+
+        } else {
+            //adjust the number of scanlines to render
+            //based on whether or not we are meeting our fps target
+
+            if(dt > (1.0f/scanline_target_fps))
+                scanline_batch_size--;
+            else
+                scanline_batch_size++;
+
+            if(scanline_batch_size<1) scanline_batch_size = 1;
+        }
+
+        //render the minimum of the remaining number of lines, and the batch size
+        int lines_to_render = std::min(scanline_batch_size, render_height - scanline_count);
 
         glEnable(GL_SCISSOR_TEST);
+        glScissor(0, display.height - render_height + scanline_count, render_width, lines_to_render);
 
-        glScissor(0, display.height - render_height + scanline_count, render_width, scanline_batch_size);
-        scanline_count += scanline_batch_size;
+        scanline_count += lines_to_render;
     }
-    
+
     //render
     drawAlignedQuad(render_width, render_height);
 
     //disable clipping
     if(scanline_mode) glDisable(GL_SCISSOR_TEST);
-    
+
     //stop using shader
     glUseProgramObjectARB(0);
 
     glEnable(GL_TEXTURE_2D);
     glDisable(GL_BLEND);
-    
+
     bool resize_frame = display.width != render_width && display.height != render_height;
-    
+
     if(scanline_mode || resize_frame) {
 
         //render to either working or completed texture depending on progress
@@ -924,15 +943,17 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
 
         glBindTexture(GL_TEXTURE_2D, render_target);
         glCopyTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 0, display.height - render_height, render_width, render_height, 0);
- 
+
         display.mode2D();
 
         //redraw last finished frame
-        if(scanline_mode && !scanline_debug && render_target != frametex || resize_frame) {
+        if(scanline_mode && (scanline_debug || render_target != frametex) || resize_frame) {
 
             if(scanline_mode && render_target != frametex)
                 glBindTexture(GL_TEXTURE_2D, frametex);
-        
+
+            glColor4f(1.0f, 1.0f, 1.0f, scanline_debug ? 0.5f : 1.0f);
+
             glBegin(GL_QUADS);
                 glTexCoord2i(1,0);
                 glVertex2i(display.width,display.height);
@@ -946,9 +967,35 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
                 glTexCoord2i(1,1);
                 glVertex2i(display.width,0);
             glEnd();
+
+            //draw the rendered portion over the top so we can see the progress
+            if(scanline_debug) {
+                glBindTexture(GL_TEXTURE_2D, rendertex);
+
+                glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
+
+                glEnable(GL_BLEND);
+                glBlendFunc(GL_ONE, GL_ONE);
+
+                glBegin(GL_QUADS);
+                    glTexCoord2i(1,0);
+                    glVertex2i(display.width,display.height);
+
+                    glTexCoord2i(0,0);
+                    glVertex2i(0,display.height);
+
+                    glTexCoord2i(0,1);
+                    glVertex2i(0,0);
+
+                    glTexCoord2i(1,1);
+                    glVertex2i(display.width,0);
+                glEnd();
+            }
+
         }
+
     }
-    
+
     // TODO: why is the first frame corrupt?
     if(scanline_mode && frame_count<2) display.clear();
 }
@@ -960,7 +1007,7 @@ void MandelbulbViewer::draw(float t, float dt) {
 
     glDisable(GL_BLEND);
     glDisable(GL_TEXTURE_2D);
-   
+
     drawMandelbulb(dt);
 
 //    glActiveTextureARB(GL_TEXTURE0);
@@ -983,12 +1030,12 @@ void MandelbulbViewer::draw(float t, float dt) {
         font.print(0, 40, "camera: %.2f,%.2f,%.2f %.2f", campos.x, campos.y, campos.z, gViewerSettings.speed);
         font.print(0, 60, "power: %.2f", gViewerSettings.power);
         font.print(0, 80, "maxIterations: %d", gViewerSettings.maxIterations);
-        font.print(0, 100, "epsilonScale: %.5f", gViewerSettings.epsilonScale);
+        font.print(0, 100,"epsilonScale: %.5f", gViewerSettings.epsilonScale);
         font.print(0, 120,"aoSteps: %.5f", gViewerSettings.aoSteps);
         font.print(0, 140,"dt: %.5f", dt);
 
-        if(gViewerSettings.juliaset) {
-            font.print(0, 140, "julia_c: %.2f,%.2f,%.2f", _julia_c.x, _julia_c.y, _julia_c.z);
+        if(scanline_mode) {
+            font.print(0, 160, "rps: %.2f, %d / %d (batch: %d)", ((float)frame_count / t), scanline_count, render_height, scanline_batch_size);
         }
     }
 

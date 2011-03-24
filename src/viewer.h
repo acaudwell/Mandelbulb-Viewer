@@ -70,7 +70,9 @@ class MandelbulbViewer : public SDLApp {
     bool scanline_debug;
     int  scanline_count;
     int  scanline_batch_size;
+    
     float scanline_target_fps;
+    float scanline_target_rps;
 
     ViewCameraPath campath;
 

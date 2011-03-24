@@ -133,7 +133,10 @@ MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
 
     scanline_count      = 0;
     scanline_batch_size = 0;
-    scanline_target_fps = 60.0f;
+    
+    scanline_target_fps = 30.0f;
+    scanline_target_rps = 10.0f;
+    
     scanline_mode       = true;
     scanline_debug      = false;
 
@@ -897,9 +900,15 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
 
         } else {
             //adjust the number of scanlines to render
-            //based on whether or not we are meeting our fps target
+            //based on whether or not we are meeting our rps/fps targets
+            
+            
+            //try to meet rps target
+            if(((float)render_height)*scanline_target_rps > ((float)scanline_batch_size)/dt) {
+                scanline_batch_size++;
 
-            if(dt > (1.0f/scanline_target_fps))
+            //try to meet fps target
+            } else if(dt > (1.0f/scanline_target_fps))
                 scanline_batch_size--;
             else
                 scanline_batch_size++;
@@ -969,8 +978,8 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
             glEnd();
 
             //draw the rendered portion over the top so we can see the progress
-            if(scanline_debug) {
-                glBindTexture(GL_TEXTURE_2D, rendertex);
+            if(scanline_mode && scanline_debug && render_target != frametex) {
+                glBindTexture(GL_TEXTURE_2D, render_target);
 
                 glColor4f(1.0f, 1.0f, 1.0f, 1.0f);
 
@@ -1035,7 +1044,7 @@ void MandelbulbViewer::draw(float t, float dt) {
         font.print(0, 140,"dt: %.5f", dt);
 
         if(scanline_mode) {
-            font.print(0, 160, "rps: %.2f, %d / %d (batch: %d)", ((float)frame_count / t), scanline_count, render_height, scanline_batch_size);
+            font.print(0, 160, "rps: %.2f, %d / %d (batch: %d)", ((float)scanline_batch_size / dt)/(float)render_height, scanline_count, render_height, scanline_batch_size);
         }
     }
 

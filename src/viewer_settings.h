@@ -29,6 +29,8 @@ public:
     float timescale;
     float viewscale;
 
+    std::string shader;
+
     bool backgroundGradient;
     bool juliaset;
     vec3f julia_c;

@@ -44,8 +44,6 @@ class MandelbulbViewer : public SDLApp {
 
     bool debug;
 
-    std::string shaderfile;
-
     std::string message;
     float message_timer;
     vec3f message_colour;
@@ -70,7 +68,7 @@ class MandelbulbViewer : public SDLApp {
     bool scanline_debug;
     int  scanline_count;
     int  scanline_batch_size;
-    
+
     float scanline_target_fps;
     float scanline_target_rps;
 
@@ -106,6 +104,8 @@ class MandelbulbViewer : public SDLApp {
     void toggleRecord();
     void resetCamPath();
 
+    void setScanlineMode(bool scanline_mode);
+
     void addWaypoint(float duration);
     void removeWaypoint();
 
@@ -130,6 +130,7 @@ public:
     void createVideo(std::string filename, int video_framerate);
 
     void saveRecording();
+    void screenshot();
 
     //inherited methods
     void init();

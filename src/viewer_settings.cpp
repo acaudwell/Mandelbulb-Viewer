@@ -40,6 +40,8 @@ void MandelbulbViewerSettings::help() {
 
     printf("  --multi-sampling         Enable multi-sampling\n\n");
 
+    printf("  --shader SHADER          Use an alternate shader\n\n");
+
     printf("  --output-ppm-stream FILE Write frames as PPM to a file ('-' for STDOUT)\n");
     printf("  --output-framerate FPS   Framerate of output (25,30,60)\n\n");
 
@@ -64,6 +66,7 @@ MandelbulbViewerSettings::MandelbulbViewerSettings() {
     //boolean args
     arg_types["help"]             = "bool";
 
+    arg_types["shader"]           = "string";
     arg_types["viewscale"]        = "float";
     arg_types["timescale"]        = "float";
     arg_types["speed"]            = "float";
@@ -113,6 +116,8 @@ void MandelbulbViewerSettings::commandLineOption(const std::string& name, const 
 }
 
 void MandelbulbViewerSettings::setViewerDefaults() {
+
+    shader = "MandelbulbQuick";
 
     viewscale = 1.0;
     timescale = 1.0;
@@ -179,6 +184,9 @@ void MandelbulbViewerSettings::importViewerSettings(ConfFile& conf) {
     ConfSection* settings = conf.getSection("mandelbulb");
 
     if(settings==0) return;
+
+    if(settings->hasValue("shader"))
+        shader = settings->getString("shader");
 
     if(settings->hasValue("cameraZoom"))
         cameraZoom = settings->getFloat("cameraZoom");
@@ -323,6 +331,7 @@ void MandelbulbViewerSettings::exportViewerSettings(ConfFile& conf) {
 
     //export current settings
 
+    section->setEntry(new ConfEntry("shader", shader));
     section->setEntry(new ConfEntry("animated", animated));
     section->setEntry(new ConfEntry("juliaset", juliaset));
     section->setEntry(new ConfEntry("julia_c", julia_c));

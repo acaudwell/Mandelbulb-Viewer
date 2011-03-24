@@ -97,7 +97,6 @@ int main(int argc, char *argv[]) {
 }
 
 MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
-    shaderfile = "MandelbulbQuick";
 
     debug = false;
 
@@ -131,13 +130,11 @@ MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
     cursor.showCursor(true);
     cursor.setCursorTexture(cursor_texture);
 
-    scanline_count      = 0;
-    scanline_batch_size = 0;
-    
     scanline_target_fps = 30.0f;
-    scanline_target_rps = 10.0f;
-    
-    scanline_mode       = true;
+    scanline_target_rps = 0.0f;
+
+    setScanlineMode(true);
+
     scanline_debug      = false;
 
     runtime = 0.0;
@@ -216,7 +213,7 @@ void MandelbulbViewer::randomizeColours() {
 void MandelbulbViewer::init() {
     display.setClearColour(vec3f(0.0, 0.0, 0.0));
 
-    shader = shadermanager.grab(shaderfile);
+    shader = shadermanager.grab(gViewerSettings.shader);
 
     rendertex = display.emptyTexture(display.width, display.height, GL_RGBA);
     frametex  = display.emptyTexture(display.width, display.height, GL_RGBA);
@@ -226,6 +223,13 @@ void MandelbulbViewer::init() {
 
     //we are ready receive mouse motion events now
     SDL_EventState(SDL_MOUSEMOTION, SDL_ENABLE);
+}
+
+void MandelbulbViewer::setScanlineMode(bool scanline_mode) {
+    scanline_count      = 0;
+    scanline_batch_size = 0;
+    this->scanline_mode = scanline_mode;
+    if(!scanline_mode) scanline_debug = false;
 }
 
 void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
@@ -348,6 +352,10 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             if(!(play||record)) saveRecording();
         }
 
+        if (e->keysym.sym ==  SDLK_F12) {
+            screenshot();
+        }
+
         if (e->keysym.sym ==  SDLK_HOME) {
             if(gViewerSettings.fov>1) gViewerSettings.fov -= 1 ;
         }
@@ -371,6 +379,10 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 
         if (e->keysym.sym == SDLK_z) {
             scanline_debug = !scanline_debug;
+        }
+
+        if (e->keysym.sym == SDLK_x) {
+            setScanlineMode(!scanline_mode);
         }
 
         if(e->keysym.sym == SDLK_SPACE) {
@@ -414,6 +426,53 @@ void MandelbulbViewer::saveRecording() {
     }
 
     setMessage("Wrote " + conf.getFilename());
+}
+
+void MandelbulbViewer::screenshot() {
+
+    char* screenbuff = new char[display.width * display.height * 4];
+
+    glReadPixels(0, 0, display.width, display.height,
+                 GL_BGRA, GL_UNSIGNED_BYTE, screenbuff);
+
+    const char tga_header[12] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+    short width           = display.width;
+    short height          = display.height;
+    char  bitsperpixel    = 32;
+    char  imagedescriptor = 8;
+
+    //get next free recording name
+    char tganame[256];
+    struct stat finfo;
+    int tgano = 1;
+
+    while(tgano < 10000) {
+        snprintf(tganame, 256, "screenshot-%04d.tga", tgano);
+        if(stat(tganame, &finfo) != 0) break;
+        tgano++;
+    }
+
+    //write tga
+    std::string filename(tganame);
+
+
+    std::ofstream tga;
+    tga.open(filename.c_str(), std::ios::out | std::ios::binary );
+
+    if(!tga.is_open()) return;
+
+    tga.write(tga_header, 12);
+    tga.write((char*)&width, sizeof(short));
+    tga.write((char*)&height, sizeof(short));
+    tga.write(&bitsperpixel, 1);
+    tga.write(&imagedescriptor, 1);
+
+    tga.write(screenbuff, display.width * display.height * 4);
+    tga.close();
+
+    delete[] screenbuff;
+
+    setMessage("Wrote screenshot " + std::string(tganame));
 }
 
 void MandelbulbViewer::resetCamPath() {
@@ -901,10 +960,10 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
         } else {
             //adjust the number of scanlines to render
             //based on whether or not we are meeting our rps/fps targets
-            
-            
+
+
             //try to meet rps target
-            if(((float)render_height)*scanline_target_rps > ((float)scanline_batch_size)/dt) {
+            if(scanline_target_rps > 0.0f && ((float)render_height)*scanline_target_rps > ((float)scanline_batch_size)/dt) {
                 scanline_batch_size++;
 
             //try to meet fps target
@@ -978,7 +1037,7 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
             glEnd();
 
             //draw the rendered portion over the top so we can see the progress
-            if(scanline_mode && scanline_debug && render_target != frametex) {
+            if(scanline_mode && scanline_debug && scanline_count < render_height) {
                 glBindTexture(GL_TEXTURE_2D, render_target);
 
                 glColor4f(1.0f, 1.0f, 1.0f, 1.0f);

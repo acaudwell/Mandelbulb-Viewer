@@ -135,7 +135,10 @@ MandelbulbViewer::MandelbulbViewer(ConfFile& conf) : SDLApp() {
 
     setScanlineMode(true);
 
-    scanline_debug      = false;
+    scanline_debug = false;
+    render_depth = false;
+
+    take_screenshot  = false;
 
     runtime = 0.0;
     frame_skip = 0;
@@ -325,11 +328,11 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
         }
 
         if (e->keysym.sym ==  SDLK_F3) {
-            gViewerSettings.fogDistance -= 0.1;
+            gViewerSettings.fogDistance -= 0.00001;
         }
 
         if (e->keysym.sym ==  SDLK_F4) {
-            gViewerSettings.fogDistance += 0.1;
+            gViewerSettings.fogDistance += 0.00001;
         }
 
         if (e->keysym.sym ==  SDLK_F5) {
@@ -352,8 +355,12 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
             if(!(play||record)) saveRecording();
         }
 
+        if (e->keysym.sym ==  SDLK_F11) {
+            render_depth = !render_depth;
+        }
+
         if (e->keysym.sym ==  SDLK_F12) {
-            screenshot();
+            take_screenshot = true;
         }
 
         if (e->keysym.sym ==  SDLK_HOME) {
@@ -395,7 +402,7 @@ void MandelbulbViewer::keyPress(SDL_KeyboardEvent *e) {
 void MandelbulbViewer::setMessage(const std::string& message, const vec3f& colour) {
     this->message = message;
     message_colour = colour;
-    message_timer = 10.0;
+    message_timer = 3.0;
 }
 
 void MandelbulbViewer::saveRecording() {
@@ -921,7 +928,7 @@ void MandelbulbViewer::drawMandelbulb(float dt) {
     shader->setFloat("aoSteps", gViewerSettings.aoSteps);
 
     shader->setFloat("fogDistance", gViewerSettings.fogDistance);
-
+    shader->setFloat("render_depth", render_depth);
 
     if(gViewerSettings.beat>0.0) {
         shader->setFloat("glowDepth", beatGlowDepth);
@@ -1078,6 +1085,11 @@ void MandelbulbViewer::draw(float t, float dt) {
 
     drawMandelbulb(dt);
 
+    if(take_screenshot) {
+        screenshot();
+        take_screenshot = false;
+    }
+
 //    glActiveTextureARB(GL_TEXTURE0);
 
     glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -1085,7 +1097,7 @@ void MandelbulbViewer::draw(float t, float dt) {
     glEnable(GL_TEXTURE_2D);
 
     if(message_timer>0.0 && frameExporter==0) {
-        glColor4f(message_colour.x, message_colour.y, message_colour.z, message_timer/10.0f);
+        glColor4f(message_colour.x, message_colour.y, message_colour.z, message_timer);
         font.draw(0, 2, message);
     }
 

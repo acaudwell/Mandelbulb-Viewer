@@ -81,6 +81,9 @@ class MandelbulbViewer : public SDLApp {
     bool mouselook;
     MouseCursor cursor;
 
+    bool take_screenshot;
+    bool render_depth;
+
     ViewCamera view;
     Object3D mandelbulb;
 

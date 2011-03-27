@@ -35,6 +35,8 @@
 			<Add library="glu32" />
 			<Add library="glew32" />
 		</Linker>
+		<Unit filename="data\shaders\Gigerbulb.frag" />
+		<Unit filename="data\shaders\Gigerbulb.vert" />
 		<Unit filename="data\shaders\MandelbulbQuick.frag" />
 		<Unit filename="data\shaders\MandelbulbQuick.vert" />
 		<Unit filename="src\core\bounds.h" />
